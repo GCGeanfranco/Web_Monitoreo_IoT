@@ -1,7 +1,6 @@
-<<<<<<< HEAD
 # Web_Monitoreo_IoT
 Sistema de monitoreo IoT de autotransformador y riego de cultivo
-=======
+
 # 🌐 Web Monitoreo IoT — Dashboard de Monitoreo en Tiempo Real
 
 Sistema de monitoreo IoT para transformadores eléctricos y riego agrícola. Incluye una API REST, base de datos, dashboard web, despliegue en la nube con Docker y pipeline CI/CD automatizado.
@@ -104,4 +103,4 @@ Configuración de la VM Ubuntu 22.04, acceso SSH, firewall y documentación de l
 ---
 
 *Proyecto — Sistema IoT de Monitoreo*
->>>>>>> c2933a6 (fix: corrige contenido de readme.md)
+
