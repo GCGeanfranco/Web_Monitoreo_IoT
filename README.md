@@ -15,10 +15,6 @@ Sistema de monitoreo IoT para transformadores eléctricos y riego agrícola. Inc
 - [Arquitectura del Sistema](#-arquitectura-del-sistema)
 - [Stack Tecnológico](#-stack-tecnológico)
 - [Fases del Proyecto](#-fases-del-proyecto)
-- [Estructura del Repositorio](#-estructura-del-repositorio)
-- [Cómo ejecutar el proyecto](#-cómo-ejecutar-el-proyecto)
-- [Variables de Entorno](#-variables-de-entorno)
-- [Estado Actual](#-estado-actual)
 - [Autor](#-autor)
 
 ---
