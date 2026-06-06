@@ -82,19 +82,23 @@ GitHub → GitHub Actions → SSH → Docker Compose → Servidor en la nube
 
 ### 
 ✅ FASE 1 - Infraestructura
-   ✅ Railway configurado
+   - Railway configurado
+---
 
 ✅ FASE 2 - API + Base de datos
-   ✅ FastAPI en producción
-   ✅ PostgreSQL con datos reales
-   ✅ 4 endpoints funcionando
+   - FastAPI en producción
+   - PostgreSQL con datos reales
+   - 4 endpoints funcionando
+---
 
 ✅ FASE 3 - Dashboard con HTTPS
-   ✅ React + Vite desplegado
-   ✅ URL pública con HTTPS automático
-   ✅ Datos en tiempo real cada 10s
-   ✅ Gráficas históricas de voltaje y humedad
-
+   - React + Vite desplegado
+   - URL pública con HTTPS automático
+   - Datos en tiempo real cada 10s
+   - Gráficas históricas de voltaje y humedad
+---
+⏳ Fase 4 — CI/CD — Despliegue Automático
+---
 ## 👤 Autor
 
 **Geanfranco**
