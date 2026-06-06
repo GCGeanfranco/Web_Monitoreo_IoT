@@ -1,2 +1,2 @@
 [start]
-cmd = "npx serve dist -p $PORT"
+cmd = "npx serve dist -p 8080"
