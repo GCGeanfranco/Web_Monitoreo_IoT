@@ -1,4 +1,4 @@
-# Web_Monitoreo_IoT https://prueba-dashboard-production.up.railway.app/
+# Web_Monitoreo_IoT 
 Sistema de monitoreo IoT de autotransformador y riego de cultivo
 
 # 🌐 Web Monitoreo IoT — Dashboard de Monitoreo en Tiempo Real
@@ -80,14 +80,20 @@ GitHub → GitHub Actions → SSH → Docker Compose → Servidor en la nube
 
 ## 🗺️ Fases del Proyecto
 
-### ✅ Fase 1 — Servidor en la nube
-Configuración de la VM Ubuntu 22.04, acceso SSH, firewall y documentación de la arquitectura inicial.
+### 
+✅ FASE 1 - Infraestructura
+   ✅ Railway configurado
 
-**Tecnologías:** AWS / Railway, Linux, SSH, UFW
+✅ FASE 2 - API + Base de datos
+   ✅ FastAPI en producción
+   ✅ PostgreSQL con datos reales
+   ✅ 4 endpoints funcionando
 
----
-
----
+✅ FASE 3 - Dashboard con HTTPS
+   ✅ React + Vite desplegado
+   ✅ URL pública con HTTPS automático
+   ✅ Datos en tiempo real cada 10s
+   ✅ Gráficas históricas de voltaje y humedad
 
 ## 👤 Autor
 
@@ -95,6 +101,7 @@ Configuración de la VM Ubuntu 22.04, acceso SSH, firewall y documentación de l
 - GitHub: [@GCGeanfranco](https://github.com/GCGeanfranco)
 - LinkedIn: [gcgeanfranco](https://linkedin.com/in/gcgeanfranco)
 - Ubicación: Perú 🇵🇪
+- link de app: https://prueba-dashboard-production.up.railway.app/
 
 ---
 
