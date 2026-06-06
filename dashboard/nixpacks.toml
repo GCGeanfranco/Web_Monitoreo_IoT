@@ -1,0 +1,2 @@
+[start]
+cmd = "npx serve dist -p $PORT"
