@@ -1,0 +1,42 @@
+name: CI/CD - Tesis IoT API
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'iot-api/**'
+
+jobs:
+  test:
+    name: 🧪 Tests automáticos
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Instalar dependencias
+        working-directory: ./iot-api
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Ejecutar tests
+        working-directory: ./iot-api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pytest tests/ -v
+
+  deploy:
+    name: 🚀 Deploy a Railway
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Notificar deploy exitoso
+        run: echo "✅ Tests pasaron - Railway despliega automáticamente via GitHub"
