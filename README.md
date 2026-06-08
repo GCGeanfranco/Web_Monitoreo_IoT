@@ -97,7 +97,11 @@ GitHub → GitHub Actions → SSH → Docker Compose → Servidor en la nube
    - Datos en tiempo real cada 10s
    - Gráficas históricas de voltaje y humedad
 ---
-⏳ Fase 4 — CI/CD — Despliegue Automático
+✅ FASE 4 - CI/CD con GitHub Actions
+   - Pipeline automático configurado
+   - Tests automáticos corriendo
+   - Deploy automático en cada push
+   - Secret DATABASE_URL configurado
 ---
 ## 👤 Autor
 
