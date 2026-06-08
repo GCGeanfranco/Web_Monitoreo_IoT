@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import LecturaTransformador, LecturaRiego
+from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB
 from pydantic import BaseModel
 from typing import Optional
+
 
 router = APIRouter()
 
@@ -60,3 +61,46 @@ def obtener_lecturas_riego(db: Session = Depends(get_db)):
     return db.query(LecturaRiego).order_by(
         LecturaRiego.created_at.desc()
     ).limit(50).all()
+
+# --- Schema Control ---
+
+
+class ComandoControl(BaseModel):
+    accion: bool
+
+# --- Endpoints Control ---
+
+
+@router.put("/control/bomba")
+def controlar_bomba(data: ComandoControl, db: Session = Depends(get_db)):
+    comando = db.query(ComandoControlDB).filter_by(dispositivo="bomba").first()
+    if comando:
+        comando.accion = data.accion
+        comando.ejecutado = False
+    else:
+        comando = ComandoControlDB(
+            dispositivo="bomba", accion=data.accion, ejecutado=False)
+        db.add(comando)
+    db.commit()
+    return {"ok": True, "dispositivo": "bomba", "accion": data.accion}
+
+
+@router.put("/control/electrovalvula")
+def controlar_electrovalvula(data: ComandoControl, db: Session = Depends(get_db)):
+    comando = db.query(ComandoControlDB).filter_by(
+        dispositivo="electrovalvula").first()
+    if comando:
+        comando.accion = data.accion
+        comando.ejecutado = False
+    else:
+        comando = ComandoControlDB(
+            dispositivo="electrovalvula", accion=data.accion, ejecutado=False)
+        db.add(comando)
+    db.commit()
+    return {"ok": True, "dispositivo": "electrovalvula", "accion": data.accion}
+
+
+@router.get("/control/estado")
+def obtener_estado_control(db: Session = Depends(get_db)):
+    comandos = db.query(ComandoControlDB).all()
+    return {c.dispositivo: c.accion for c in comandos}

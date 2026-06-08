@@ -25,3 +25,13 @@ class LecturaRiego(Base):
     electrovalvula_activa = Column(Boolean, default=False)
     tiempo_riego = Column(Integer)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class ComandoControlDB(Base):
+    __tablename__ = "comandos_control"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dispositivo = Column(String(50))
+    accion = Column(Boolean, default=False)
+    ejecutado = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
