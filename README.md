@@ -109,7 +109,7 @@ GitHub → GitHub Actions → SSH → Docker Compose → Servidor en la nube
 - GitHub: [@GCGeanfranco](https://github.com/GCGeanfranco)
 - LinkedIn: [gcgeanfranco](https://linkedin.com/in/gcgeanfranco)
 - Ubicación: Perú 🇵🇪
-- link de app: https://prueba-dashboard-production.up.railway.app/
+
 
 ---
 
