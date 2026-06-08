@@ -125,7 +125,7 @@ export default function App() {
           value={ultima?.alarma ? "ACTIVA" : "OK"}
           unit="" color={ultima?.alarma ? "#f38ba8" : "#a6e3a1"} icon="🚨" />
         <ControlButton
-          label="🎛️ Control Manual Bomba"
+          label="🎛️ Control Manual Autotransformador"
           estado={controlBomba}
           onToggle={toggleBomba}
           color="#89b4fa" />
@@ -162,7 +162,7 @@ export default function App() {
       {/* Botón Control Riego */}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 28 }}>
         <ControlButton
-          label="🎛️ Control Manual Electroválvula"
+          label="🎛️ Control Manual de Bomba"
           estado={controlValvula}
           onToggle={toggleValvula}
           color="#89dceb" />
