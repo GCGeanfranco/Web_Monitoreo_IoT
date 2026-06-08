@@ -40,3 +40,4 @@ jobs:
     steps:
       - name: Notificar deploy exitoso
         run: echo "✅ Tests pasaron - Railway despliega automáticamente via GitHub"
+
