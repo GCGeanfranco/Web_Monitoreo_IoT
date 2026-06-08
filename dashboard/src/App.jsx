@@ -125,7 +125,7 @@ export default function App() {
           value={ultima?.alarma ? "ACTIVA" : "OK"}
           unit="" color={ultima?.alarma ? "#f38ba8" : "#a6e3a1"} icon="🚨" />
         <ControlButton
-          label="🎛️ Control Manual Autotransformador"
+          label="🎛️ Control Manual de Autotransformador"
           estado={controlBomba}
           onToggle={toggleBomba}
           color="#89b4fa" />
