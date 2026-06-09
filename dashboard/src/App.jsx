@@ -7,6 +7,27 @@ import axios from "axios";
 
 const API = "https://webmonitoreoiot-production.up.railway.app";
 
+const formatearHora = (timestamp) => {
+  if (!timestamp) return "";
+  const fecha = new Date(timestamp);
+  return fecha.toLocaleTimeString("es-PE", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+};
+
+const formatearTooltip = (timestamp) => {
+  if (!timestamp) return "";
+  const fecha = new Date(timestamp);
+  return fecha.toLocaleDateString("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+};
+
 function StatCard({ title, value, unit, color, icon }) {
   return (
     <div style={{
@@ -137,9 +158,18 @@ export default function App() {
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={transformador}>
             <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3e" />
-            <XAxis dataKey="id" stroke="#555" tick={{ fontSize: 11 }} />
+            <XAxis
+              dataKey="created_at"
+              stroke="#555"
+              tick={{ fontSize: 10 }}
+              tickFormatter={formatearHora}
+              interval="preserveStartEnd"
+            />
             <YAxis stroke="#555" tick={{ fontSize: 11 }} domain={[150, 250]} />
-            <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid #333" }} />
+            <Tooltip
+              contentStyle={{ background: "#1e1e2e", border: "1px solid #333" }}
+              labelFormatter={formatearTooltip}
+            />
             <Legend />
             <Line type="monotone" dataKey="voltaje_entrada" stroke="#89b4fa" dot={false} name="V. Entrada" />
             <Line type="monotone" dataKey="voltaje_salida" stroke="#a6e3a1" dot={false} name="V. Salida" />
@@ -174,9 +204,18 @@ export default function App() {
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={riego}>
             <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3e" />
-            <XAxis dataKey="id" stroke="#555" tick={{ fontSize: 11 }} />
+            <XAxis
+              dataKey="created_at"
+              stroke="#555"
+              tick={{ fontSize: 10 }}
+              tickFormatter={formatearHora}
+              interval="preserveStartEnd"
+            />
             <YAxis stroke="#555" tick={{ fontSize: 11 }} domain={[0, 100]} />
-            <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid #333" }} />
+            <Tooltip
+              contentStyle={{ background: "#1e1e2e", border: "1px solid #333" }}
+              labelFormatter={formatearTooltip}
+            />
             <Line type="monotone" dataKey="humedad_suelo" stroke="#89dceb" dot={false} name="Humedad %" />
           </LineChart>
         </ResponsiveContainer>
