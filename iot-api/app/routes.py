@@ -4,7 +4,7 @@ from app.database import get_db
 from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB
 from pydantic import BaseModel
 from typing import Optional
-
+from app.mqtt_client import publicar_comando
 
 router = APIRouter()
 
@@ -82,6 +82,10 @@ def controlar_bomba(data: ComandoControl, db: Session = Depends(get_db)):
             dispositivo="bomba", accion=data.accion, ejecutado=False)
         db.add(comando)
     db.commit()
+
+    # Publicar en MQTT para respuesta instantánea
+    publicar_comando("bomba", data.accion)
+
     return {"ok": True, "dispositivo": "bomba", "accion": data.accion}
 
 
@@ -97,6 +101,10 @@ def controlar_electrovalvula(data: ComandoControl, db: Session = Depends(get_db)
             dispositivo="electrovalvula", accion=data.accion, ejecutado=False)
         db.add(comando)
     db.commit()
+
+    # Publicar en MQTT para respuesta instantánea
+    publicar_comando("electrovalvula", data.accion)
+
     return {"ok": True, "dispositivo": "electrovalvula", "accion": data.accion}
 
 
