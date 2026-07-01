@@ -125,7 +125,7 @@ export default function App() {
         <h1 style={{ margin: 0, fontSize: 24, color: "#a6e3a1" }}>
           ⚡ Sistema IoT — Autotransformador & Riego
         </h1>
-        <p style={{ color: "#555", margin: "4px 0 0" }}>Actualización cada 10 segundos</p>
+
       </div>
 
       {/* Cards Transformador */}
@@ -148,7 +148,7 @@ export default function App() {
           value={ultima?.alarma ? "ACTIVA" : "OK"}
           unit="" color={ultima?.alarma ? "#f38ba8" : "#a6e3a1"} icon="🚨" />
         <ControlButton
-          label="🎛️ Control Manual de Autotransformador"
+          label="🎛️ Control Manual de Bomba"
           estado={controlBomba}
           onToggle={toggleBomba}
           color="#89b4fa" />
@@ -194,7 +194,7 @@ export default function App() {
       {/* Botón Control Riego */}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 28 }}>
         <ControlButton
-          label="🎛️ Control Manual de Bomba"
+          label="🎛️ Control Manual de ..."
           estado={controlValvula}
           onToggle={toggleValvula}
           color="#89dceb" />
