@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import "./App.css";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
@@ -9,64 +10,80 @@ const API = "https://webmonitoreoiot-production.up.railway.app";
 
 const formatearHora = (timestamp) => {
   if (!timestamp) return "";
-  const fecha = new Date(timestamp + "Z"); // fuerza UTC
+  const fecha = new Date(timestamp + "Z");
   return fecha.toLocaleTimeString("es-PE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "America/Lima"
+    hour: "2-digit", minute: "2-digit", timeZone: "America/Lima"
   });
 };
 
 const formatearTooltip = (timestamp) => {
   if (!timestamp) return "";
-  const fecha = new Date(timestamp + "Z"); // fuerza UTC
+  const fecha = new Date(timestamp + "Z");
   return fecha.toLocaleDateString("es-PE", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    timeZone: "America/Lima"
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+    second: "2-digit", timeZone: "America/Lima"
   });
 };
 
-function StatCard({ title, value, unit, color, icon }) {
+function Gauge({ value, min, max, unit, label, icon, color }) {
+  const r = 40;
+  const circumference = 2 * Math.PI * r;
+  const arcFraction = 0.75; // arco de 270°
+  const arcLength = circumference * arcFraction;
+  const pct = value == null ? 0 : Math.min(1, Math.max(0, (value - min) / (max - min)));
+  const dash = arcLength * pct;
+
   return (
-    <div style={{
-      background: "#1e1e2e", borderRadius: 12, padding: "20px 24px",
-      borderLeft: `4px solid ${color}`, flex: 1, minWidth: 160
-    }}>
-      <div style={{ color: "#888", fontSize: 13, marginBottom: 6 }}>{icon} {title}</div>
-      <div style={{ color, fontSize: 32, fontWeight: 700 }}>
-        {value ?? "—"}<span style={{ fontSize: 14, marginLeft: 4 }}>{unit}</span>
+    <div className="gauge-card">
+      <svg viewBox="0 0 100 100" className="gauge-svg">
+        <circle cx="50" cy="50" r={r} className="gauge-track"
+          strokeDasharray={`${arcLength} ${circumference}`}
+          transform="rotate(135 50 50)" />
+        <circle cx="50" cy="50" r={r} className="gauge-fill" style={{ stroke: color }}
+          strokeDasharray={`${dash} ${circumference}`}
+          transform="rotate(135 50 50)" />
+      </svg>
+      <div className="gauge-center">
+        <div className="gauge-value" style={{ color }}>
+          {value ?? "—"}<span className="gauge-unit">{unit}</span>
+        </div>
+        <div className="gauge-label">{icon} {label}</div>
       </div>
     </div>
   );
 }
 
-function ControlButton({ label, estado, onToggle, color }) {
+function Led({ icon, label, active, color, text }) {
   return (
-    <div style={{
-      background: "#1e1e2e", borderRadius: 12, padding: "20px 24px",
-      borderLeft: `4px solid ${color}`, flex: 1, minWidth: 160,
-      display: "flex", flexDirection: "column", gap: 12
-    }}>
-      <div style={{ color: "#888", fontSize: 13 }}>{label}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ color, fontSize: 24, fontWeight: 700 }}>
-          {estado ? "ON" : "OFF"}
-        </span>
-        <button
-          onClick={onToggle}
-          style={{
-            background: estado ? "#f38ba8" : "#a6e3a1",
-            color: "#13131f", border: "none", borderRadius: 8,
-            padding: "8px 20px", fontWeight: 700, cursor: "pointer",
-            fontSize: 14
-          }}>
-          {estado ? "Apagar" : "Encender"}
-        </button>
+    <div className="led-card">
+      <span className="led" data-active={active} style={{ "--led-color": color }} />
+      <div>
+        <div className="led-label">{icon} {label}</div>
+        <div className="led-value" style={{ color }}>{text}</div>
       </div>
+    </div>
+  );
+}
+
+function TapIndicator({ active = 0, total = 5, color }) {
+  return (
+    <div className="tap-indicator">
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} className="tap-dot" data-on={i < active} style={{ "--dot-color": color }} />
+      ))}
+    </div>
+  );
+}
+
+function Switch({ label, on, onToggle, color }) {
+  return (
+    <div className="switch-card" style={{ "--sw-color": color }}>
+      <div className="switch-label">{label}</div>
+      <button className="switch-track" data-on={on} onClick={onToggle} aria-pressed={on}>
+        <span className="switch-thumb" />
+        <span className="switch-text off">OFF</span>
+        <span className="switch-text on">ON</span>
+      </button>
     </div>
   );
 }
@@ -118,111 +135,110 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ background: "#13131f", minHeight: "100vh", color: "#fff", fontFamily: "sans-serif", padding: 24 }}>
-
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ margin: 0, fontSize: 24, color: "#a6e3a1" }}>
-          ⚡ Sistema IoT — Autotransformador & Riego
-        </h1>
-
+    <div className="dashboard">
+      <div className="topbar">
+        <h1>Sistema IoT — Autotransformador &amp; Riego</h1>
+        <div className="topbar-status">
+          <span className="live-dot" />
+          Última lectura: {ultima?.created_at ? formatearTooltip(ultima.created_at) : "—"}
+        </div>
       </div>
 
-      {/* Cards Transformador */}
-      <h2 style={{ color: "#cdd6f4", fontSize: 15, marginBottom: 12 }}>🔌 Autotransformador</h2>
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
-        <StatCard title="Voltaje Entrada" value={ultima?.voltaje_entrada} unit="V" color="#89b4fa" icon="📥" />
-        <StatCard title="Voltaje Salida" value={ultima?.voltaje_salida} unit="V" color="#a6e3a1" icon="📤" />
-        <StatCard title="Tap Activo" value={ultima?.tap_activo} unit="" color="#f9e2af" icon="🎚️" />
-        <StatCard title="Temperatura" value={ultima?.temperatura} unit="°C" color="#fab387" icon="🌡️" />
-      </div>
+      <div className="module-grid">
+        {/* Módulo Autotransformador */}
+        <div className="module" style={{ "--module-color": "var(--copper)" }}>
+          <div className="module-header">🔌 Autotransformador</div>
+          <div className="module-body">
+            <div className="gauge-row">
+              <Gauge label="V. Entrada" value={ultima?.voltaje_entrada} min={0} max={250} unit="V" icon="📥" color="var(--copper)" />
+              <Gauge label="V. Salida" value={ultima?.voltaje_salida} min={0} max={250} unit="V" icon="📤" color="var(--volt)" />
+              <Gauge label="Temperatura" value={ultima?.temperatura} min={0} max={100} unit="°C" icon="🌡️" color="var(--alert)" />
+            </div>
 
-      {/* Botones Control Transformador */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 28 }}>
-        <StatCard
-          title="Estado Bomba (sensor)"
-          value={ultima?.estado_bomba ? "ON" : "OFF"}
-          unit="" color={ultima?.estado_bomba ? "#a6e3a1" : "#f38ba8"} icon="💧" />
-        <StatCard
-          title="Alarma"
-          value={ultima?.alarma ? "ACTIVA" : "OK"}
-          unit="" color={ultima?.alarma ? "#f38ba8" : "#a6e3a1"} icon="🚨" />
-        <ControlButton
-          label="🎛️ Control Manual de Bomba"
-          estado={controlBomba}
-          onToggle={toggleBomba}
-          color="#89b4fa" />
+            <div className="mini-row">
+              <div className="mini-card">
+                <div className="mini-label">🎚️ Tap Activo</div>
+                <div className="mini-value">{ultima?.tap_activo ?? "—"}</div>
+                <TapIndicator active={ultima?.tap_activo ?? 0} total={10} color="var(--volt)" />
+              </div>
+            </div>
+
+            <div className="mini-row">
+              <Led icon="💧" label="Estado Bomba (sensor)" active={!!ultima?.estado_bomba}
+                color={ultima?.estado_bomba ? "var(--ok)" : "var(--text-dim)"}
+                text={ultima?.estado_bomba ? "ON" : "OFF"} />
+              <Led icon="🚨" label="Alarma" active={!!ultima?.alarma}
+                color={ultima?.alarma ? "var(--alert)" : "var(--ok)"}
+                text={ultima?.alarma ? "ACTIVA" : "OK"} />
+            </div>
+
+            <Switch label="🎛️ Control Manual de Bomba" on={controlBomba} onToggle={toggleBomba} color="var(--copper)" />
+          </div>
+        </div>
+
+        {/* Módulo Riego */}
+        <div className="module" style={{ "--module-color": "var(--water)" }}>
+          <div className="module-header">🌱 Sistema de Riego</div>
+          <div className="module-body">
+            <div className="gauge-row">
+              <Gauge label={<>Humedad<br />Suelo</>} value={ultimoRiego?.humedad_suelo} min={0} max={100} unit="%" icon="💧" color="var(--water)" />
+            </div>
+
+            <div className="mini-row">
+              <div className="mini-card">
+                <div className="mini-label">🚿 Modo Riego</div>
+                <div className="mini-value">{ultimoRiego?.modo_riego ?? "—"}</div>
+              </div>
+              <div className="mini-card">
+                <div className="mini-label">⏱️ Tiempo Riego</div>
+                <div className="mini-value">{ultimoRiego?.tiempo_riego ?? "—"} min</div>
+              </div>
+            </div>
+
+            <div className="mini-row">
+              <Led icon="🔧" label="Electroválvula (sensor)" active={!!ultimoRiego?.electrovalvula_activa}
+                color={ultimoRiego?.electrovalvula_activa ? "var(--water)" : "var(--text-dim)"}
+                text={ultimoRiego?.electrovalvula_activa ? "ABIERTA" : "CERRADA"} />
+            </div>
+
+            <Switch label="🎛️ Control Manual de Electroválvula" on={controlValvula} onToggle={toggleValvula} color="var(--water)" />
+          </div>
+        </div>
       </div>
 
       {/* Gráfica Voltaje */}
-      <h2 style={{ color: "#cdd6f4", fontSize: 15, marginBottom: 12 }}>📈 Historial de Voltaje</h2>
-      <div style={{ background: "#1e1e2e", borderRadius: 12, padding: 20, marginBottom: 28 }}>
+      <div className="chart-panel">
+        <h2 className="chart-panel-title">📈 Historial de Voltaje</h2>
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={transformador}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3e" />
-            <XAxis
-              dataKey="created_at"
-              stroke="#555"
-              tick={{ fontSize: 10 }}
-              tickFormatter={formatearHora}
-              interval="preserveStartEnd"
-            />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="created_at" stroke="#555" tick={{ fontSize: 10 }}
+              tickFormatter={formatearHora} interval="preserveStartEnd" />
             <YAxis stroke="#555" tick={{ fontSize: 11 }} domain={[150, 250]} />
-            <Tooltip
-              contentStyle={{ background: "#1e1e2e", border: "1px solid #333" }}
-              labelFormatter={formatearTooltip}
-            />
+            <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)" }}
+              labelFormatter={formatearTooltip} />
             <Legend />
-            <Line type="monotone" dataKey="voltaje_entrada" stroke="#89b4fa" dot={false} name="V. Entrada" />
-            <Line type="monotone" dataKey="voltaje_salida" stroke="#a6e3a1" dot={false} name="V. Salida" />
+            <Line type="monotone" dataKey="voltaje_entrada" stroke="var(--copper)" dot={false} name="V. Entrada" />
+            <Line type="monotone" dataKey="voltaje_salida" stroke="var(--volt)" dot={false} name="V. Salida" />
           </LineChart>
         </ResponsiveContainer>
-      </div>
-
-      {/* Cards Riego */}
-      <h2 style={{ color: "#cdd6f4", fontSize: 15, marginBottom: 12 }}>🌱 Sistema de Riego</h2>
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
-        <StatCard title="Humedad Suelo" value={ultimoRiego?.humedad_suelo} unit="%" color="#89dceb" icon="💧" />
-        <StatCard title="Modo Riego" value={ultimoRiego?.modo_riego} unit="" color="#cba6f7" icon="🚿" />
-        <StatCard
-          title="Electroválvula (sensor)"
-          value={ultimoRiego?.electrovalvula_activa ? "ABIERTA" : "CERRADA"}
-          unit="" color={ultimoRiego?.electrovalvula_activa ? "#a6e3a1" : "#f38ba8"} icon="🔧" />
-        <StatCard title="Tiempo Riego" value={ultimoRiego?.tiempo_riego} unit="min" color="#f9e2af" icon="⏱️" />
-      </div>
-
-      {/* Botón Control Riego */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 28 }}>
-        <ControlButton
-          label="🎛️ Control Manual de ..."
-          estado={controlValvula}
-          onToggle={toggleValvula}
-          color="#89dceb" />
       </div>
 
       {/* Gráfica Humedad */}
-      <h2 style={{ color: "#cdd6f4", fontSize: 15, marginBottom: 12 }}>📈 Historial de Humedad</h2>
-      <div style={{ background: "#1e1e2e", borderRadius: 12, padding: 20 }}>
+      <div className="chart-panel">
+        <h2 className="chart-panel-title">📈 Historial de Humedad</h2>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={riego}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3e" />
-            <XAxis
-              dataKey="created_at"
-              stroke="#555"
-              tick={{ fontSize: 10 }}
-              tickFormatter={formatearHora}
-              interval="preserveStartEnd"
-            />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="created_at" stroke="#555" tick={{ fontSize: 10 }}
+              tickFormatter={formatearHora} interval="preserveStartEnd" />
             <YAxis stroke="#555" tick={{ fontSize: 11 }} domain={[0, 100]} />
-            <Tooltip
-              contentStyle={{ background: "#1e1e2e", border: "1px solid #333" }}
-              labelFormatter={formatearTooltip}
-            />
-            <Line type="monotone" dataKey="humedad_suelo" stroke="#89dceb" dot={false} name="Humedad %" />
+            <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)" }}
+              labelFormatter={formatearTooltip} />
+            <Line type="monotone" dataKey="humedad_suelo" stroke="var(--water)" dot={false} name="Humedad %" />
           </LineChart>
         </ResponsiveContainer>
       </div>
-
     </div>
   );
 }
