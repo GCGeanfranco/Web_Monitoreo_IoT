@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import axios from "axios";
 
-const API = "https://webmonitoreoiot-production.up.railway.app";
+const API = "https://web-monitoreo-iot.onrender.com";
 
 const formatearHora = (timestamp) => {
   if (!timestamp) return "";
