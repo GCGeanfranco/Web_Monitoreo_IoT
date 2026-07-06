@@ -11,17 +11,21 @@ MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
 
 
 def publicar_comando(dispositivo: str, accion: bool):
-    """Publica un comando en el topic MQTT correspondiente"""
     try:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
         client.tls_set()
         client.connect(MQTT_HOST, MQTT_PORT, 60)
 
+        client.loop_start()  # inicia el loop de red en un hilo aparte
+
         topic = f"tesis-iot/{dispositivo}/control"
         payload = "1" if accion else "0"
 
-        client.publish(topic, payload, qos=1)
+        info = client.publish(topic, payload, qos=1)
+        info.wait_for_publish(timeout=5)  # espera confirmación real de envío
+
+        client.loop_stop()
         client.disconnect()
 
         print(f"[MQTT] Publicado en {topic}: {payload}")
