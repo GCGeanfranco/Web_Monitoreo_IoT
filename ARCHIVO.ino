@@ -505,20 +505,23 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
 void conectarMQTT()
 {
-  espClient.setInsecure(); // Para TLS sin certificado
+  espClient.setInsecure();
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
   mqttClient.setCallback(mqttCallback);
+  mqttClient.setBufferSize(256);
+  mqttClient.setKeepAlive(15);
+
+  String clientId = "ESP32_Autotrans_" + WiFi.macAddress();
 
   int intentos = 0;
   while (!mqttClient.connected() && intentos < 5)
   {
     Serial.print("[MQTT] Conectando...");
-    if (mqttClient.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD))
+    if (mqttClient.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD))
     {
       Serial.println(" Conectado!");
       mqttClient.subscribe("tesis-iot/bomba/control");
       mqttClient.subscribe("tesis-iot/electrovalvula/control");
-      Serial.println("[MQTT] Suscrito a topics de control");
     }
     else
     {
