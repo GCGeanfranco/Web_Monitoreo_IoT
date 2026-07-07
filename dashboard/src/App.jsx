@@ -75,11 +75,18 @@ function TapIndicator({ active = 0, total = 5, color }) {
   );
 }
 
-function Switch({ label, on, onToggle, color }) {
+function Switch({ label, on, onToggle, color, disabled = false }) {
   return (
     <div className="switch-card" style={{ "--sw-color": color }}>
       <div className="switch-label">{label}</div>
-      <button className="switch-track" data-on={on} onClick={onToggle} aria-pressed={on}>
+      <button
+        className="switch-track"
+        data-on={on}
+        onClick={disabled ? undefined : onToggle}
+        aria-pressed={on}
+        disabled={disabled}
+        style={{ opacity: disabled ? 0.5 : 1, cursor: disabled ? "not-allowed" : "pointer" }}
+      >
         <span className="switch-thumb" />
         <span className="switch-text off">OFF</span>
         <span className="switch-text on">ON</span>
@@ -97,15 +104,17 @@ export default function App() {
   const [controlValvula, setControlValvula] = useState(false);
   const [bombaPendiente, setBombaPendiente] = useState(false);
   const [valvulaPendiente, setValvulaPendiente] = useState(false);
+  const [sistemaOnline, setSistemaOnline] = useState(false);
   const bombaTimeoutRef = useRef(null);
   const valvulaTimeoutRef = useRef(null);
 
   const fetchData = async () => {
     try {
-      const [t, r, control] = await Promise.all([
+      const [t, r, control, sistema] = await Promise.all([
         axios.get(`${API}/api/lecturas/transformador`),
         axios.get(`${API}/api/lecturas/riego`),
-        axios.get(`${API}/api/control/estado`)
+        axios.get(`${API}/api/control/estado`),
+        axios.get(`${API}/api/sistema/estado`)
       ]);
       const tData = t.data.reverse();
       const rData = r.data.reverse();
@@ -127,6 +136,7 @@ export default function App() {
         setValvulaPendiente(false);
         clearTimeout(valvulaTimeoutRef.current);
       }
+      setSistemaOnline(sistema.data.online ?? false);
     } catch (e) {
       console.error("Error fetching data", e);
     }
@@ -155,9 +165,37 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Carga inicial vía fetch normal (para historial de gráficas)
     fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+
+    // Conexión SSE para actualizaciones push en tiempo real
+    const eventSource = new EventSource(`${API}/api/stream/estado`);
+
+    eventSource.onmessage = (event) => {
+      const mensaje = JSON.parse(event.data);
+
+      if (mensaje.tipo === "inicial") {
+        if (mensaje.data.transformador) setUltima(mensaje.data.transformador);
+        if (mensaje.data.riego) setUltimoRiego(mensaje.data.riego);
+      } else if (mensaje.tipo === "transformador") {
+        setUltima(mensaje.data);
+        setControlBomba(mensaje.data.estado_bomba ?? false);
+        // Agregar al historial de la gráfica también
+        setTransformador((prev) => [...prev, mensaje.data].slice(-50));
+      } else if (mensaje.tipo === "riego") {
+        setUltimoRiego(mensaje.data);
+        setControlValvula(mensaje.data.electrovalvula_activa ?? false);
+        setRiego((prev) => [...prev, mensaje.data].slice(-50));
+      } else if (mensaje.tipo === "sistema") {
+        setSistemaOnline(mensaje.data.online);
+      }
+    };
+
+    eventSource.onerror = () => {
+      console.log("[SSE] Desconectado, el navegador reintentará automáticamente...");
+    };
+
+    return () => eventSource.close();
   }, []);
 
   return (
@@ -265,6 +303,19 @@ export default function App() {
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      <Switch
+        label="🎛️ Control Manual de Bomba"
+        on={controlBomba}
+        onToggle={toggleBomba}
+        color="var(--copper)"
+        disabled={!sistemaOnline}
+      />
+      {!sistemaOnline && (
+        <span style={{ fontSize: "12px", color: "var(--alert)" }}>
+          ⚠️ Sistema desconectado
+        </span>
+      )}
     </div>
   );
 }

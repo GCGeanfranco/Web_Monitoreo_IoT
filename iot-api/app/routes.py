@@ -1,3 +1,14 @@
+import asyncio
+import json
+from fastapi.responses import StreamingResponse
+from app import sse_manager
+from app import mqtt_listener
+from app.sse_manager import (
+    conexiones_activas,
+    notificar_cambio,
+    ultimo_estado_transformador,
+    ultimo_estado_riego,
+)
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -5,6 +16,7 @@ from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB
 from pydantic import BaseModel
 from typing import Optional
 from app.mqtt_client import publicar_comando
+
 
 router = APIRouter()
 
@@ -26,6 +38,53 @@ class RiegoIn(BaseModel):
     electrovalvula_activa: bool = False
     tiempo_riego: int
 
+
+# --- Endpoint SSE ---
+
+async def event_generator(queue: asyncio.Queue):
+    try:
+        while True:
+            mensaje = await queue.get()
+            yield f"data: {mensaje}\n\n"
+    except asyncio.CancelledError:
+        pass
+    finally:
+        if queue in conexiones_activas:
+            conexiones_activas.remove(queue)
+
+
+@router.get("/sistema/estado")
+def obtener_estado_sistema():
+    return {"online": mqtt_listener.sistema_online}
+
+
+@router.get("/stream/estado")
+async def stream_estado():
+    queue = asyncio.Queue()
+    conexiones_activas.append(queue)
+
+    # Enviar estado inicial inmediatamente al conectar,
+    # para que el dashboard no espere al próximo evento
+    estado_inicial = {
+        "tipo": "inicial",
+        "data": {
+            "transformador": sse_manager.ultimo_estado_transformador,
+            "riego": sse_manager.ultimo_estado_riego,
+        },
+    }
+    await queue.put(json.dumps(estado_inicial))
+
+    return StreamingResponse(
+        event_generator(queue),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            # evita buffering en proxies (importante en Render)
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 # --- Endpoints Transformador ---
 
 
@@ -35,6 +94,19 @@ def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get
     db.add(lectura)
     db.commit()
     db.refresh(lectura)
+
+    # Notificar a todos los dashboards conectados
+    notificar_cambio("transformador", {
+        "id": lectura.id,
+        "voltaje_entrada": lectura.voltaje_entrada,
+        "voltaje_salida": lectura.voltaje_salida,
+        "tap_activo": lectura.tap_activo,
+        "temperatura": lectura.temperatura,
+        "estado_bomba": lectura.estado_bomba,
+        "alarma": lectura.alarma,
+        "created_at": lectura.created_at.isoformat() if lectura.created_at else None,
+    })
+
     return {"ok": True, "id": lectura.id}
 
 
@@ -53,6 +125,16 @@ def crear_lectura_riego(data: RiegoIn, db: Session = Depends(get_db)):
     db.add(lectura)
     db.commit()
     db.refresh(lectura)
+
+    notificar_cambio("riego", {
+        "id": lectura.id,
+        "humedad_suelo": lectura.humedad_suelo,
+        "modo_riego": lectura.modo_riego,
+        "electrovalvula_activa": lectura.electrovalvula_activa,
+        "tiempo_riego": lectura.tiempo_riego,
+        "created_at": lectura.created_at.isoformat() if lectura.created_at else None,
+    })
+
     return {"ok": True, "id": lectura.id}
 
 

@@ -1,3 +1,6 @@
+import asyncio
+from app.sse_manager import registrar_loop
+from app.mqtt_listener import iniciar_listener, detener_listener
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import router
@@ -28,3 +31,15 @@ app.include_router(router, prefix="/api")
 @app.get("/")
 def root():
     return {"status": "ok", "mensaje": "API Tesis IoT funcionando"}
+
+
+@app.on_event("startup")
+async def startup_event():
+    loop = asyncio.get_running_loop()
+    registrar_loop(loop)
+    iniciar_listener(loop)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    detener_listener()
