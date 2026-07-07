@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -95,6 +95,10 @@ export default function App() {
   const [ultimoRiego, setUltimoRiego] = useState(null);
   const [controlBomba, setControlBomba] = useState(false);
   const [controlValvula, setControlValvula] = useState(false);
+  const [bombaPendiente, setBombaPendiente] = useState(false);
+  const [valvulaPendiente, setValvulaPendiente] = useState(false);
+  const bombaTimeoutRef = useRef(null);
+  const valvulaTimeoutRef = useRef(null);
 
   const fetchData = async () => {
     try {
@@ -109,8 +113,20 @@ export default function App() {
       setRiego(rData);
       setUltima(tData[tData.length - 1]);
       setUltimoRiego(rData[rData.length - 1]);
-      setControlBomba(control.data.bomba ?? false);
-      setControlValvula(control.data.electrovalvula ?? false);
+
+      const estadoBombaReal = control.data.bomba ?? false;
+      if (!bombaPendiente || estadoBombaReal === controlBomba) {
+        setControlBomba(estadoBombaReal);
+        setBombaPendiente(false);
+        clearTimeout(bombaTimeoutRef.current);
+      }
+
+      const estadoValvulaReal = control.data.electrovalvula ?? false;
+      if (!valvulaPendiente || estadoValvulaReal === controlValvula) {
+        setControlValvula(estadoValvulaReal);
+        setValvulaPendiente(false);
+        clearTimeout(valvulaTimeoutRef.current);
+      }
     } catch (e) {
       console.error("Error fetching data", e);
     }
@@ -119,12 +135,22 @@ export default function App() {
   const toggleBomba = async () => {
     const nuevaAccion = !controlBomba;
     setControlBomba(nuevaAccion);
+    setBombaPendiente(true);
+
+    clearTimeout(bombaTimeoutRef.current);
+    bombaTimeoutRef.current = setTimeout(() => setBombaPendiente(false), 5000);
+
     await axios.put(`${API}/api/control/bomba`, { accion: nuevaAccion });
   };
 
   const toggleValvula = async () => {
     const nuevaAccion = !controlValvula;
     setControlValvula(nuevaAccion);
+    setValvulaPendiente(true);
+
+    clearTimeout(valvulaTimeoutRef.current);
+    valvulaTimeoutRef.current = setTimeout(() => setValvulaPendiente(false), 5000);
+
     await axios.put(`${API}/api/control/electrovalvula`, { accion: nuevaAccion });
   };
 
