@@ -110,5 +110,14 @@ def controlar_electrovalvula(data: ComandoControl, db: Session = Depends(get_db)
 
 @router.get("/control/estado")
 def obtener_estado_control(db: Session = Depends(get_db)):
-    comandos = db.query(ComandoControlDB).all()
-    return {c.dispositivo: c.accion for c in comandos}
+    ultima_lectura = db.query(LecturaTransformador).order_by(
+        LecturaTransformador.created_at.desc()
+    ).first()
+    ultimo_riego = db.query(LecturaRiego).order_by(
+        LecturaRiego.created_at.desc()
+    ).first()
+
+    return {
+        "bomba": ultima_lectura.estado_bomba if ultima_lectura else False,
+        "electrovalvula": ultimo_riego.electrovalvula_activa if ultimo_riego else False,
+    }
