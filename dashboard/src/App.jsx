@@ -28,7 +28,7 @@ const formatearTooltip = (timestamp) => {
 function Gauge({ value, min, max, unit, label, icon, color }) {
   const r = 40;
   const circumference = 2 * Math.PI * r;
-  const arcFraction = 0.75; // arco de 270°
+  const arcFraction = 0.75;
   const arcLength = circumference * arcFraction;
   const pct = value == null ? 0 : Math.min(1, Math.max(0, (value - min) / (max - min)));
   const dash = arcLength * pct;
@@ -75,7 +75,7 @@ function TapIndicator({ active = 0, total = 5, color }) {
   );
 }
 
-function Switch({ label, on, onToggle, color, disabled = false }) {
+function Switch({ label, on, onToggle, color, disabled = false, pendiente = false }) {
   return (
     <div className="switch-card" style={{ "--sw-color": color }}>
       <div className="switch-label">{label}</div>
@@ -91,6 +91,16 @@ function Switch({ label, on, onToggle, color, disabled = false }) {
         <span className="switch-text off">OFF</span>
         <span className="switch-text on">ON</span>
       </button>
+      {pendiente && (
+        <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
+          ⏳ Esperando confirmación del equipo...
+        </span>
+      )}
+      {disabled && (
+        <span style={{ fontSize: "12px", color: "var(--alert)" }}>
+          ⚠️ Sistema desconectado
+        </span>
+      )}
     </div>
   );
 }
@@ -108,6 +118,17 @@ export default function App() {
   const bombaTimeoutRef = useRef(null);
   const valvulaTimeoutRef = useRef(null);
 
+  // Refs para evitar "stale closures" dentro del callback de EventSource
+  const bombaPendienteRef = useRef(false);
+  const valvulaPendienteRef = useRef(false);
+  const controlBombaRef = useRef(false);
+  const controlValvulaRef = useRef(false);
+
+  useEffect(() => { bombaPendienteRef.current = bombaPendiente; }, [bombaPendiente]);
+  useEffect(() => { valvulaPendienteRef.current = valvulaPendiente; }, [valvulaPendiente]);
+  useEffect(() => { controlBombaRef.current = controlBomba; }, [controlBomba]);
+  useEffect(() => { controlValvulaRef.current = controlValvula; }, [controlValvula]);
+
   const fetchData = async () => {
     try {
       const [t, r, control, sistema] = await Promise.all([
@@ -124,18 +145,19 @@ export default function App() {
       setUltimoRiego(rData[rData.length - 1]);
 
       const estadoBombaReal = control.data.bomba ?? false;
-      if (!bombaPendiente || estadoBombaReal === controlBomba) {
+      if (!bombaPendienteRef.current || estadoBombaReal === controlBombaRef.current) {
         setControlBomba(estadoBombaReal);
         setBombaPendiente(false);
         clearTimeout(bombaTimeoutRef.current);
       }
 
       const estadoValvulaReal = control.data.electrovalvula ?? false;
-      if (!valvulaPendiente || estadoValvulaReal === controlValvula) {
+      if (!valvulaPendienteRef.current || estadoValvulaReal === controlValvulaRef.current) {
         setControlValvula(estadoValvulaReal);
         setValvulaPendiente(false);
         clearTimeout(valvulaTimeoutRef.current);
       }
+
       setSistemaOnline(sistema.data.online ?? false);
     } catch (e) {
       console.error("Error fetching data", e);
@@ -165,10 +187,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Carga inicial vía fetch normal (para historial de gráficas)
     fetchData();
 
-    // Conexión SSE para actualizaciones push en tiempo real
     const eventSource = new EventSource(`${API}/api/stream/estado`);
 
     eventSource.onmessage = (event) => {
@@ -179,12 +199,21 @@ export default function App() {
         if (mensaje.data.riego) setUltimoRiego(mensaje.data.riego);
       } else if (mensaje.tipo === "transformador") {
         setUltima(mensaje.data);
-        setControlBomba(mensaje.data.estado_bomba ?? false);
-        // Agregar al historial de la gráfica también
+        const estadoBombaReal = mensaje.data.estado_bomba ?? false;
+        if (!bombaPendienteRef.current || estadoBombaReal === controlBombaRef.current) {
+          setControlBomba(estadoBombaReal);
+          setBombaPendiente(false);
+          clearTimeout(bombaTimeoutRef.current);
+        }
         setTransformador((prev) => [...prev, mensaje.data].slice(-50));
       } else if (mensaje.tipo === "riego") {
         setUltimoRiego(mensaje.data);
-        setControlValvula(mensaje.data.electrovalvula_activa ?? false);
+        const estadoValvulaReal = mensaje.data.electrovalvula_activa ?? false;
+        if (!valvulaPendienteRef.current || estadoValvulaReal === controlValvulaRef.current) {
+          setControlValvula(estadoValvulaReal);
+          setValvulaPendiente(false);
+          clearTimeout(valvulaTimeoutRef.current);
+        }
         setRiego((prev) => [...prev, mensaje.data].slice(-50));
       } else if (mensaje.tipo === "sistema") {
         setSistemaOnline(mensaje.data.online);
@@ -209,7 +238,6 @@ export default function App() {
       </div>
 
       <div className="module-grid">
-        {/* Módulo Autotransformador */}
         <div className="module" style={{ "--module-color": "var(--copper)" }}>
           <div className="module-header">🔌 Autotransformador</div>
           <div className="module-body">
@@ -236,11 +264,17 @@ export default function App() {
                 text={ultima?.alarma ? "ACTIVA" : "OK"} />
             </div>
 
-            <Switch label="🎛️ Control Manual de Bomba" on={controlBomba} onToggle={toggleBomba} color="var(--copper)" />
+            <Switch
+              label="🎛️ Control Manual de Bomba"
+              on={controlBomba}
+              onToggle={toggleBomba}
+              color="var(--copper)"
+              disabled={!sistemaOnline}
+              pendiente={bombaPendiente}
+            />
           </div>
         </div>
 
-        {/* Módulo Riego */}
         <div className="module" style={{ "--module-color": "var(--water)" }}>
           <div className="module-header">🌱 Sistema de Riego</div>
           <div className="module-body">
@@ -265,12 +299,18 @@ export default function App() {
                 text={ultimoRiego?.electrovalvula_activa ? "ABIERTA" : "CERRADA"} />
             </div>
 
-            <Switch label="🎛️ Control Manual de Electroválvula" on={controlValvula} onToggle={toggleValvula} color="var(--water)" />
+            <Switch
+              label="🎛️ Control Manual de Electroválvula"
+              on={controlValvula}
+              onToggle={toggleValvula}
+              color="var(--water)"
+              disabled={!sistemaOnline}
+              pendiente={valvulaPendiente}
+            />
           </div>
         </div>
       </div>
 
-      {/* Gráfica Voltaje */}
       <div className="chart-panel">
         <h2 className="chart-panel-title">📈 Historial de Voltaje</h2>
         <ResponsiveContainer width="100%" height={250}>
@@ -288,7 +328,6 @@ export default function App() {
         </ResponsiveContainer>
       </div>
 
-      {/* Gráfica Humedad */}
       <div className="chart-panel">
         <h2 className="chart-panel-title">📈 Historial de Humedad</h2>
         <ResponsiveContainer width="100%" height={220}>
@@ -303,19 +342,6 @@ export default function App() {
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      <Switch
-        label="🎛️ Control Manual de Bomba"
-        on={controlBomba}
-        onToggle={toggleBomba}
-        color="var(--copper)"
-        disabled={!sistemaOnline}
-      />
-      {!sistemaOnline && (
-        <span style={{ fontSize: "12px", color: "var(--alert)" }}>
-          ⚠️ Sistema desconectado
-        </span>
-      )}
     </div>
   );
 }
