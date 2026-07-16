@@ -10,7 +10,7 @@ const API = "https://web-monitoreo-iot.onrender.com";
 
 const formatearHora = (timestamp) => {
   if (!timestamp) return "";
-  const fecha = new Date(timestamp + "05:00");
+  const fecha = new Date(timestamp + "-05:00");
   return fecha.toLocaleTimeString("es-PE", {
     hour: "2-digit", minute: "2-digit", timeZone: "America/Lima"
   });
@@ -18,7 +18,7 @@ const formatearHora = (timestamp) => {
 
 const formatearTooltip = (timestamp) => {
   if (!timestamp) return "";
-  const fecha = new Date(timestamp + "05:00");
+  const fecha = new Date(timestamp + "-05:00");
   return fecha.toLocaleDateString("es-PE", {
     day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
     second: "2-digit", timeZone: "America/Lima"
