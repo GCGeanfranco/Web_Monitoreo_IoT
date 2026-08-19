@@ -186,45 +186,72 @@ export default function App() {
     await axios.put(`${API}/api/control/electrovalvula`, { accion: nuevaAccion });
   };
 
+  // Ref al EventSource activo, para poder cerrarlo y reabrirlo
+  // (p.ej. cuando la PWA vuelve de segundo plano en el celular).
+  const eventSourceRef = useRef(null);
+
   useEffect(() => {
+    const conectarSSE = () => {
+      // Si ya había una conexión (p.ej. una reconexión manual), ciérrala primero
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+
+      const eventSource = new EventSource(`${API}/api/stream/estado`);
+      eventSourceRef.current = eventSource;
+
+      eventSource.onmessage = (event) => {
+        const mensaje = JSON.parse(event.data);
+
+        if (mensaje.tipo === "inicial") {
+          if (mensaje.data.transformador) setUltima(mensaje.data.transformador);
+          if (mensaje.data.riego) setUltimoRiego(mensaje.data.riego);
+        } else if (mensaje.tipo === "transformador") {
+          setUltima(mensaje.data);
+          const estadoBombaReal = mensaje.data.estado_bomba ?? false;
+          if (!bombaPendienteRef.current || estadoBombaReal === controlBombaRef.current) {
+            setControlBomba(estadoBombaReal);
+            setBombaPendiente(false);
+            clearTimeout(bombaTimeoutRef.current);
+          }
+          setTransformador((prev) => [...prev, mensaje.data].slice(-50));
+        } else if (mensaje.tipo === "riego") {
+          setUltimoRiego(mensaje.data);
+          const estadoValvulaReal = mensaje.data.electrovalvula_activa ?? false;
+          if (!valvulaPendienteRef.current || estadoValvulaReal === controlValvulaRef.current) {
+            setControlValvula(estadoValvulaReal);
+            setValvulaPendiente(false);
+            clearTimeout(valvulaTimeoutRef.current);
+          }
+          setRiego((prev) => [...prev, mensaje.data].slice(-50));
+        } else if (mensaje.tipo === "sistema") {
+          setSistemaOnline(mensaje.data.online);
+        }
+      };
+
+      eventSource.onerror = () => {
+        console.log("[SSE] Desconectado, el navegador reintentará automáticamente...");
+      };
+    };
+
     fetchData();
+    conectarSSE();
 
-    const eventSource = new EventSource(`${API}/api/stream/estado`);
-
-    eventSource.onmessage = (event) => {
-      const mensaje = JSON.parse(event.data);
-
-      if (mensaje.tipo === "inicial") {
-        if (mensaje.data.transformador) setUltima(mensaje.data.transformador);
-        if (mensaje.data.riego) setUltimoRiego(mensaje.data.riego);
-      } else if (mensaje.tipo === "transformador") {
-        setUltima(mensaje.data);
-        const estadoBombaReal = mensaje.data.estado_bomba ?? false;
-        if (!bombaPendienteRef.current || estadoBombaReal === controlBombaRef.current) {
-          setControlBomba(estadoBombaReal);
-          setBombaPendiente(false);
-          clearTimeout(bombaTimeoutRef.current);
-        }
-        setTransformador((prev) => [...prev, mensaje.data].slice(-50));
-      } else if (mensaje.tipo === "riego") {
-        setUltimoRiego(mensaje.data);
-        const estadoValvulaReal = mensaje.data.electrovalvula_activa ?? false;
-        if (!valvulaPendienteRef.current || estadoValvulaReal === controlValvulaRef.current) {
-          setControlValvula(estadoValvulaReal);
-          setValvulaPendiente(false);
-          clearTimeout(valvulaTimeoutRef.current);
-        }
-        setRiego((prev) => [...prev, mensaje.data].slice(-50));
-      } else if (mensaje.tipo === "sistema") {
-        setSistemaOnline(mensaje.data.online);
+    // En móvil, al volver del background (celular bloqueado o cambio de app),
+    // el navegador puede haber matado la conexión SSE sin avisar. Al recuperar
+    // visibilidad, refrescamos datos y forzamos una reconexión limpia.
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchData();
+        conectarSSE();
       }
     };
+    document.addEventListener("visibilitychange", handleVisibility);
 
-    eventSource.onerror = () => {
-      console.log("[SSE] Desconectado, el navegador reintentará automáticamente...");
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (eventSourceRef.current) eventSourceRef.current.close();
     };
-
-    return () => eventSource.close();
   }, []);
 
   return (
