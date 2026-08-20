@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+test_ci.db
+test_local.db
+*.db

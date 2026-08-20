@@ -30,7 +30,8 @@ jobs:
       - name: Ejecutar tests
         working-directory: ./iot-api
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # SQLite descartable — ver mismo comentario en el workflow raíz.
+          DATABASE_URL: sqlite:///./test_ci.db
         run: pytest tests/ -v
 
   deploy:
