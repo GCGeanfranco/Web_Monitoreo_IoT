@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from fastapi.responses import StreamingResponse
 from app import sse_manager
 from app import mqtt_listener
@@ -12,13 +13,15 @@ from app.sse_manager import (
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB
+from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB, PushSubscription
 from pydantic import BaseModel
 from typing import Optional
 from app.mqtt_client import publicar_comando
+from app.push_service import enviar_push_alarma, push_configurado, VAPID_PUBLIC_KEY
 
 
 router = APIRouter()
+logger = logging.getLogger("routes")
 
 # --- Schemas ---
 
@@ -37,6 +40,16 @@ class RiegoIn(BaseModel):
     modo_riego: str
     electrovalvula_activa: bool = False
     tiempo_riego: int
+
+
+class PushKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class PushSubscriptionIn(BaseModel):
+    endpoint: str
+    keys: PushKeys
 
 
 # --- Endpoint SSE ---
@@ -90,6 +103,13 @@ async def stream_estado():
 
 @router.post("/lecturas/transformador")
 def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get_db)):
+    # Capturamos el estado de alarma ANTERIOR antes de que notificar_cambio()
+    # lo sobreescriba, para detectar el flanco OFF->ON (y no repetir el push
+    # en cada lectura mientras la alarma se mantiene activa).
+    alarma_anterior = False
+    if sse_manager.ultimo_estado_transformador:
+        alarma_anterior = sse_manager.ultimo_estado_transformador.get("alarma", False)
+
     lectura = LecturaTransformador(**data.model_dump())
     db.add(lectura)
     db.commit()
@@ -106,6 +126,16 @@ def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get
         "alarma": lectura.alarma,
         "created_at": lectura.created_at.isoformat() if lectura.created_at else None,
     })
+
+    # Push solo en el flanco de subida de la alarma (OFF -> ON).
+    # Envuelto en try/except a propósito: este endpoint lo llama el ESP32 en
+    # tiempo real, y un fallo en el sistema de notificaciones NUNCA debe
+    # impedir que la lectura se guarde y se confirme con 200.
+    if lectura.alarma and not alarma_anterior:
+        try:
+            enviar_push_alarma(db, voltaje_entrada=lectura.voltaje_entrada)
+        except Exception as ex:
+            logger.error(f"[PUSH] Fallo no controlado al enviar alarma: {ex}")
 
     return {"ok": True, "id": lectura.id}
 
@@ -203,3 +233,37 @@ def obtener_estado_control(db: Session = Depends(get_db)):
         "bomba": ultima_lectura.estado_bomba if ultima_lectura else False,
         "electrovalvula": ultimo_riego.electrovalvula_activa if ultimo_riego else False,
     }
+
+# --- Endpoints Push Notifications ---
+
+
+@router.get("/push/vapid-public-key")
+def obtener_vapid_public_key():
+    """El frontend necesita esta llave pública para pedir la suscripción
+    push al navegador (PushManager.subscribe)."""
+    return {"publicKey": VAPID_PUBLIC_KEY, "configurado": push_configurado()}
+
+
+@router.post("/push/subscribe")
+def suscribir_push(data: PushSubscriptionIn, db: Session = Depends(get_db)):
+    existente = db.query(PushSubscription).filter_by(endpoint=data.endpoint).first()
+    if existente:
+        existente.p256dh = data.keys.p256dh
+        existente.auth = data.keys.auth
+    else:
+        db.add(PushSubscription(
+            endpoint=data.endpoint,
+            p256dh=data.keys.p256dh,
+            auth=data.keys.auth,
+        ))
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/push/unsubscribe")
+def desuscribir_push(data: dict, db: Session = Depends(get_db)):
+    endpoint = data.get("endpoint")
+    if endpoint:
+        db.query(PushSubscription).filter_by(endpoint=endpoint).delete()
+        db.commit()
+    return {"ok": True}

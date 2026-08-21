@@ -43,6 +43,52 @@
   animation: pulse 2s infinite;
 }
 
+/* Botón de notificaciones push */
+.alertas-push {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.btn-alertas {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-alertas:hover:not(:disabled) {
+  border-color: var(--volt);
+  color: var(--text);
+}
+
+.btn-alertas:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-alertas.activo {
+  border-color: var(--volt);
+  color: var(--volt);
+  background: rgba(232, 179, 77, 0.08);
+}
+
+.alertas-error {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--alert);
+  max-width: 260px;
+  text-align: right;
+}
+
 @keyframes pulse {
 
   0%,

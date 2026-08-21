@@ -6,7 +6,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Monitoreo IoT — Fundo Lopez',
@@ -24,19 +28,11 @@ export default defineConfig({
           { src: '/pwa-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       },
-      workbox: {
-        // No cachear llamadas a la API ni el stream SSE — siempre datos frescos
-        navigateFallbackDenylist: [/^\/api\//],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/web-monitoreo-iot\.onrender\.com\/api\/(?!stream).*/,
-            handler: 'NetworkOnly'
-          },
-          {
-            urlPattern: /^https:\/\/web-monitoreo-iot\.onrender\.com\/api\/stream.*/,
-            handler: 'NetworkOnly'
-          }
-        ]
+      // El NetworkOnly de /api/ ahora vive dentro de src/sw.js (registerRoute),
+      // porque en modo injectManifest el service worker es código propio, no
+      // generado automáticamente a partir de esta config.
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico}']
       }
     })
   ],

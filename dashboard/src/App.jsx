@@ -5,6 +5,12 @@ import {
   Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 import axios from "axios";
+import {
+  pushSoportado,
+  suscribirseAAlertas,
+  desuscribirseDeAlertas,
+  yaEstaSuscrito,
+} from "./pushNotifications";
 
 const API = "https://web-monitoreo-iot.onrender.com";
 
@@ -115,6 +121,9 @@ export default function App() {
   const [bombaPendiente, setBombaPendiente] = useState(false);
   const [valvulaPendiente, setValvulaPendiente] = useState(false);
   const [sistemaOnline, setSistemaOnline] = useState(false);
+  const [alertasActivas, setAlertasActivas] = useState(false);
+  const [alertasCargando, setAlertasCargando] = useState(false);
+  const [alertasError, setAlertasError] = useState(null);
   const bombaTimeoutRef = useRef(null);
   const valvulaTimeoutRef = useRef(null);
 
@@ -254,6 +263,32 @@ export default function App() {
     };
   }, []);
 
+  // Revisar, al cargar, si este dispositivo ya está suscrito a las alertas
+  // (para que el botón arranque en el estado correcto sin que el usuario
+  // tenga que volver a tocarlo cada vez que abre la app).
+  useEffect(() => {
+    if (!pushSoportado()) return;
+    yaEstaSuscrito().then(setAlertasActivas).catch(() => {});
+  }, []);
+
+  const handleToggleAlertas = async () => {
+    setAlertasError(null);
+    setAlertasCargando(true);
+    try {
+      if (alertasActivas) {
+        await desuscribirseDeAlertas(API);
+        setAlertasActivas(false);
+      } else {
+        await suscribirseAAlertas(API);
+        setAlertasActivas(true);
+      }
+    } catch (err) {
+      setAlertasError(err.message || "No se pudo actualizar la suscripción.");
+    } finally {
+      setAlertasCargando(false);
+    }
+  };
+
   return (
     <div className="dashboard">
       <div className="topbar">
@@ -262,6 +297,22 @@ export default function App() {
           <span className="live-dot" />
           Última lectura: {ultima?.created_at ? formatearTooltip(ultima.created_at) : "—"}
         </div>
+        {pushSoportado() && (
+          <div className="alertas-push">
+            <button
+              className={`btn-alertas ${alertasActivas ? "activo" : ""}`}
+              onClick={handleToggleAlertas}
+              disabled={alertasCargando}
+            >
+              {alertasCargando
+                ? "..."
+                : alertasActivas
+                ? "🔔 Alertas activadas"
+                : "🔕 Activar alertas"}
+            </button>
+            {alertasError && <div className="alertas-error">{alertasError}</div>}
+          </div>
+        )}
       </div>
 
       <div className="module-grid">

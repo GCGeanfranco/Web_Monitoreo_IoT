@@ -35,3 +35,14 @@ class ComandoControlDB(Base):
     accion = Column(Boolean, default=False)
     ejecutado = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # URL única que identifica el dispositivo/navegador suscrito (la da el navegador)
+    endpoint = Column(String(500), unique=True, index=True)
+    p256dh = Column(String(255))
+    auth = Column(String(255))
+    created_at = Column(DateTime, server_default=func.now())
