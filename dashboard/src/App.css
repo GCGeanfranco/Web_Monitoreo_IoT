@@ -89,6 +89,51 @@
   text-align: right;
 }
 
+/* Panel de desarrollador (oculto, se activa con 5 toques en el titulo) */
+.dev-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  border: 1px dashed var(--alert);
+  border-radius: 8px;
+  background: rgba(255, 100, 100, 0.06);
+}
+
+.dev-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--alert);
+}
+
+.btn-escaneo {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--volt);
+  background: var(--panel-2);
+  color: var(--volt);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.btn-escaneo:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dev-panel-hint {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 @keyframes pulse {
 
   0%,

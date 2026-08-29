@@ -124,8 +124,12 @@ export default function App() {
   const [alertasActivas, setAlertasActivas] = useState(false);
   const [alertasCargando, setAlertasCargando] = useState(false);
   const [alertasError, setAlertasError] = useState(null);
+  const [devMode, setDevMode] = useState(() => sessionStorage.getItem("devMode") === "1");
+  const [escaneando, setEscaneando] = useState(false);
   const bombaTimeoutRef = useRef(null);
   const valvulaTimeoutRef = useRef(null);
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef(null);
 
   // Refs para evitar "stale closures" dentro del callback de EventSource
   const bombaPendienteRef = useRef(false);
@@ -289,10 +293,37 @@ export default function App() {
     }
   };
 
+  // Gesto oculto: 5 toques en el titulo en menos de 2s activa el modo dev.
+  // Se guarda en sessionStorage (se pierde al cerrar la pestaña, a proposito).
+  const handleTituloTap = () => {
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 2000);
+    if (tapCountRef.current >= 5) {
+      tapCountRef.current = 0;
+      setDevMode(true);
+      sessionStorage.setItem("devMode", "1");
+    }
+  };
+
+  const solicitarEscaneo = async () => {
+    setEscaneando(true);
+    try {
+      await axios.post(`${API}/api/control/escaneo`);
+    } catch (err) {
+      console.error("Error al iniciar escaneo", err);
+      alert("Error al iniciar escaneo: " + (err.message || "desconocido"));
+    } finally {
+      setTimeout(() => setEscaneando(false), 8000);
+    }
+  };
+
   return (
     <div className="dashboard">
       <div className="topbar">
-        <h1>Sistema IoT — Autotransformador &amp; Riego</h1>
+        <h1 onClick={handleTituloTap} style={{ userSelect: "none", cursor: "default" }}>
+          Sistema IoT — Autotransformador &amp; Riego
+        </h1>
         <div className="topbar-status">
           <span className="live-dot" />
           Última lectura: {ultima?.created_at ? formatearTooltip(ultima.created_at) : "—"}
@@ -314,6 +345,22 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {devMode && (
+        <div className="dev-panel">
+          <span className="dev-badge">🔧 MODO DEV</span>
+          <button
+            className="btn-escaneo"
+            onClick={solicitarEscaneo}
+            disabled={escaneando || !sistemaOnline}
+          >
+            {escaneando ? "Escaneando taps..." : "⚡ Escanear Taps"}
+          </button>
+          {!sistemaOnline && (
+            <span className="dev-panel-hint">Sistema desconectado — no se puede escanear</span>
+          )}
+        </div>
+      )}
 
       <div className="module-grid">
         <div className="module" style={{ "--module-color": "var(--copper)" }}>

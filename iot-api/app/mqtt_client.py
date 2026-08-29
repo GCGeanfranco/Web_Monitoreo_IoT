@@ -33,3 +33,31 @@ def publicar_comando(dispositivo: str, accion: bool):
     except Exception as e:
         print(f"[MQTT] Error: {e}")
         return False
+
+
+def publicar_comando_escaneo():
+    """
+    Publica 'scan' en tesis-iot/autotransformador/control.
+    A diferencia de publicar_comando() (payload booleano "1"/"0" para
+    bomba/electrovalvula), este topico acepta comandos de texto que ya
+    maneja el firmware en mqttCallback() ("scan", "tabla", "reset").
+    """
+    try:
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
+        client.tls_set()
+        client.connect(MQTT_HOST, MQTT_PORT, 60)
+        client.loop_start()
+
+        topic = "tesis-iot/autotransformador/control"
+        info = client.publish(topic, "scan", qos=1)
+        info.wait_for_publish(timeout=5)
+
+        client.loop_stop()
+        client.disconnect()
+
+        print(f"[MQTT] Publicado en {topic}: scan")
+        return True
+    except Exception as e:
+        print(f"[MQTT] Error: {e}")
+        return False

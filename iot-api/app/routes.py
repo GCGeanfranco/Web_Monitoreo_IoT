@@ -10,13 +10,13 @@ from app.sse_manager import (
     ultimo_estado_transformador,
     ultimo_estado_riego,
 )
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB, PushSubscription
 from pydantic import BaseModel
 from typing import Optional
-from app.mqtt_client import publicar_comando
+from app.mqtt_client import publicar_comando, publicar_comando_escaneo
 from app.push_service import enviar_push_alarma, push_configurado, VAPID_PUBLIC_KEY
 
 
@@ -218,6 +218,23 @@ def controlar_electrovalvula(data: ComandoControl, db: Session = Depends(get_db)
     publicar_comando("electrovalvula", data.accion)
 
     return {"ok": True, "dispositivo": "electrovalvula", "accion": data.accion}
+
+
+@router.post("/control/escaneo")
+def solicitar_escaneo():
+    """
+    Dispara un escaneo remoto de los 10 taps en el ESP32 (comando 'scan' via
+    MQTT). No persiste estado en BD: a diferencia de bomba/electrovalvula,
+    el escaneo no es un on/off que deba sincronizarse, es una accion puntual
+    que el firmware ejecuta una vez y termina sola.
+
+    El ESP32 tarda ~7s en recorrer los 10 taps (600ms de estabilizacion x10
+    + pausas de rele); durante ese lapso no envia lecturas normales por HTTP.
+    """
+    ok = publicar_comando_escaneo()
+    if not ok:
+        raise HTTPException(status_code=502, detail="No se pudo publicar el comando de escaneo en MQTT")
+    return {"ok": True, "comando": "scan"}
 
 
 @router.get("/control/estado")
