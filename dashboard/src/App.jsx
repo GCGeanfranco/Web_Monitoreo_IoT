@@ -317,6 +317,11 @@ export default function App() {
       setTimeout(() => setEscaneando(false), 8000);
     }
   };
+  
+  const ocultarPanelDev = () => {
+    setDevMode(false);
+    sessionStorage.removeItem("devMode");
+  };
 
   return (
     <div className="dashboard">
@@ -359,6 +364,9 @@ export default function App() {
           {!sistemaOnline && (
             <span className="dev-panel-hint">Sistema desconectado — no se puede escanear</span>
           )}
+          <button className="btn-cerrar-dev" onClick={ocultarPanelDev} title="Ocultar panel dev">
+            ✕
+          </button>
         </div>
       )}
 
