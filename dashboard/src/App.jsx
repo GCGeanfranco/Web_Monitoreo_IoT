@@ -81,7 +81,7 @@ function TapIndicator({ active = 0, total = 5, color }) {
   );
 }
 
-function Switch({ label, on, onToggle, color, disabled = false, pendiente = false }) {
+function Switch({ label, on, onToggle, color, disabled = false, pendiente = false, sinConfirmar = false }) {
   return (
     <div className="switch-card" style={{ "--sw-color": color }}>
       <div className="switch-label">{label}</div>
@@ -97,9 +97,14 @@ function Switch({ label, on, onToggle, color, disabled = false, pendiente = fals
         <span className="switch-text off">OFF</span>
         <span className="switch-text on">ON</span>
       </button>
-      {pendiente && (
+      {pendiente && !sinConfirmar && (
         <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
           ⏳ Esperando confirmación del equipo...
+        </span>
+      )}
+      {sinConfirmar && (
+        <span style={{ fontSize: "12px", color: "var(--alert)", fontWeight: 600 }}>
+          ⚠️ No confirmado — el equipo no respondió, verifica el estado real antes de asumir el cambio.
         </span>
       )}
       {disabled && (
@@ -119,6 +124,7 @@ export default function App() {
   const [controlBomba, setControlBomba] = useState(false);
   const [controlValvula, setControlValvula] = useState(false);
   const [bombaPendiente, setBombaPendiente] = useState(false);
+  const [bombaSinConfirmar, setBombaSinConfirmar] = useState(false);
   const [valvulaPendiente, setValvulaPendiente] = useState(false);
   const [sistemaOnline, setSistemaOnline] = useState(false);
   const [alertasActivas, setAlertasActivas] = useState(false);
@@ -161,6 +167,7 @@ export default function App() {
       if (!bombaPendienteRef.current || estadoBombaReal === controlBombaRef.current) {
         setControlBomba(estadoBombaReal);
         setBombaPendiente(false);
+        setBombaSinConfirmar(false);
         clearTimeout(bombaTimeoutRef.current);
       }
 
@@ -181,11 +188,23 @@ export default function App() {
     const nuevaAccion = !controlBomba;
     setControlBomba(nuevaAccion);
     setBombaPendiente(true);
+    setBombaSinConfirmar(false);
 
+    // bombaPendiente ya NO se limpia por tiempo: eso era la "confirmación
+    // falsa" (el switch parecía confirmado sin que el ESP32 haya dicho
+    // nada). A los 5s sin eco real, mostramos una advertencia explícita
+    // en vez de ocultar el aviso. bombaPendiente solo se limpia cuando
+    // fetchData()/SSE reciben un estado real que coincide con lo pedido.
     clearTimeout(bombaTimeoutRef.current);
-    bombaTimeoutRef.current = setTimeout(() => setBombaPendiente(false), 5000);
+    bombaTimeoutRef.current = setTimeout(() => setBombaSinConfirmar(true), 5000);
 
-    await axios.put(`${API}/api/control/bomba`, { accion: nuevaAccion });
+    try {
+      await axios.put(`${API}/api/control/bomba`, { accion: nuevaAccion });
+    } catch (e) {
+      console.error("Error enviando comando de bomba", e);
+      clearTimeout(bombaTimeoutRef.current);
+      setBombaSinConfirmar(true);
+    }
   };
 
   const toggleValvula = async () => {
@@ -225,6 +244,7 @@ export default function App() {
           if (!bombaPendienteRef.current || estadoBombaReal === controlBombaRef.current) {
             setControlBomba(estadoBombaReal);
             setBombaPendiente(false);
+            setBombaSinConfirmar(false);
             clearTimeout(bombaTimeoutRef.current);
           }
           setTransformador((prev) => [...prev, mensaje.data].slice(-50));
@@ -404,6 +424,7 @@ export default function App() {
               color="var(--copper)"
               disabled={!sistemaOnline}
               pendiente={bombaPendiente}
+              sinConfirmar={bombaSinConfirmar}
             />
           </div>
         </div>
