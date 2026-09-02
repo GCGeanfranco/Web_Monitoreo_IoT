@@ -20,7 +20,7 @@ El nodo de hardware es un **ESP32** que envía lecturas cada 30 segundos a una A
 ```
 ┌─────────────────────┐
 │   ESP32 (Arduino)   │  Lee voltaje (ZMPT101B), conmuta taps,
-│  ARCHIVO.ino        │  bomba, alarma, humedad/electroválvula
+│   (firmware .ino)   │  bomba, alarma, humedad/electroválvula
 └───────┬─────────────┘
         │                              ┌──────────────────────────────┐
         │ ① HTTP POST (cada 30s)       │  HiveMQ Cloud (broker MQTT)  │
@@ -135,7 +135,7 @@ Cada cliente que se conecta a `/api/stream/estado` recibe una cola propia. El pr
 
 ---
 
-## 6. Hardware / Firmware — `ARCHIVO.ino` (ESP32)
+## 6. Hardware / Firmware — ESP32 (Arduino)
 
 - **Sensores/actuadores**: ZMPT101B (voltaje), 10 relés de taps, bomba (pin 14), alarma (pin 27), LCD I2C 16x2.
 - **Lógica de control**:
@@ -183,7 +183,6 @@ Definidas en `.env` / secrets de la plataforma (ver `.env.example`):
 ## 9. Estructura del repositorio
 
 ```
-├── ARCHIVO.ino            # Firmware ESP32 (Arduino)
 ├── ARCHITECTURE.md        # Este documento
 ├── iot-api/               # Backend FastAPI (Render)
 │   ├── app/
