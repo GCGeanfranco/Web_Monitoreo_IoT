@@ -12,6 +12,7 @@ class LecturaTransformador(Base):
     tap_activo = Column(Integer)
     temperatura = Column(Float)
     estado_bomba = Column(Boolean, default=False)
+    estado_bomba2 = Column(Boolean, default=False)
     alarma = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
 

@@ -281,11 +281,27 @@
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--led-color);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+  opacity: 0.3;
+  box-shadow: none;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
 .led[data-active="true"] {
-  box-shadow: 0 0 10px 2px var(--led-color), 0 0 0 3px rgba(255, 255, 255, 0.04);
+  opacity: 1;
+  box-shadow: 0 0 12px 3px var(--led-color), 0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+
+.led.led-pulse[data-active="true"] {
+  animation: led-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes led-pulse {
+  0%, 100% {
+    box-shadow: 0 0 12px 3px var(--led-color), 0 0 0 3px rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 22px 7px var(--led-color), 0 0 0 3px rgba(255, 255, 255, 0.08);
+  }
 }
 
 .led-label {

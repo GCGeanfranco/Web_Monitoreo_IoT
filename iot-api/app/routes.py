@@ -32,6 +32,7 @@ class TransformadorIn(BaseModel):
     tap_activo: int
     temperatura: float
     estado_bomba: bool = False
+    estado_bomba2: bool = False
     alarma: bool = False
 
 
@@ -123,6 +124,7 @@ def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get
         "tap_activo": lectura.tap_activo,
         "temperatura": lectura.temperatura,
         "estado_bomba": lectura.estado_bomba,
+        "estado_bomba2": lectura.estado_bomba2,
         "alarma": lectura.alarma,
         "created_at": lectura.created_at.isoformat() if lectura.created_at else None,
     })
@@ -201,6 +203,24 @@ def controlar_bomba(data: ComandoControl, db: Session = Depends(get_db)):
     return {"ok": True, "dispositivo": "bomba", "accion": data.accion}
 
 
+@router.put("/control/bomba2")
+def controlar_bomba2(data: ComandoControl, db: Session = Depends(get_db)):
+    comando = db.query(ComandoControlDB).filter_by(dispositivo="bomba2").first()
+    if comando:
+        comando.accion = data.accion
+        comando.ejecutado = False
+    else:
+        comando = ComandoControlDB(
+            dispositivo="bomba2", accion=data.accion, ejecutado=False)
+        db.add(comando)
+    db.commit()
+
+    # Publicar en MQTT para respuesta instantánea
+    publicar_comando("bomba2", data.accion)
+
+    return {"ok": True, "dispositivo": "bomba2", "accion": data.accion}
+
+
 @router.put("/control/electrovalvula")
 def controlar_electrovalvula(data: ComandoControl, db: Session = Depends(get_db)):
     comando = db.query(ComandoControlDB).filter_by(
@@ -248,6 +268,7 @@ def obtener_estado_control(db: Session = Depends(get_db)):
 
     return {
         "bomba": ultima_lectura.estado_bomba if ultima_lectura else False,
+        "bomba2": ultima_lectura.estado_bomba2 if ultima_lectura else False,
         "electrovalvula": ultimo_riego.electrovalvula_activa if ultimo_riego else False,
     }
 

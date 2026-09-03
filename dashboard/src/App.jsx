@@ -59,10 +59,14 @@ function Gauge({ value, min, max, unit, label, icon, color }) {
   );
 }
 
-function Led({ icon, label, active, color, text }) {
+function Led({ icon, label, active, color, text, pulse = false }) {
   return (
     <div className="led-card">
-      <span className="led" data-active={active} style={{ "--led-color": color }} />
+      <span
+        className={`led${active && pulse ? " led-pulse" : ""}`}
+        data-active={active}
+        style={{ "--led-color": color }}
+      />
       <div>
         <div className="led-label">{icon} {label}</div>
         <div className="led-value" style={{ color }}>{text}</div>
@@ -122,9 +126,12 @@ export default function App() {
   const [ultima, setUltima] = useState(null);
   const [ultimoRiego, setUltimoRiego] = useState(null);
   const [controlBomba, setControlBomba] = useState(false);
+  const [controlBomba2, setControlBomba2] = useState(false);
   const [controlValvula, setControlValvula] = useState(false);
   const [bombaPendiente, setBombaPendiente] = useState(false);
+  const [bombaPendiente2, setBombaPendiente2] = useState(false);
   const [bombaSinConfirmar, setBombaSinConfirmar] = useState(false);
+  const [bombaSinConfirmar2, setBombaSinConfirmar2] = useState(false);
   const [valvulaPendiente, setValvulaPendiente] = useState(false);
   const [sistemaOnline, setSistemaOnline] = useState(false);
   const [alertasActivas, setAlertasActivas] = useState(false);
@@ -133,19 +140,24 @@ export default function App() {
   const [devMode, setDevMode] = useState(() => sessionStorage.getItem("devMode") === "1");
   const [escaneando, setEscaneando] = useState(false);
   const bombaTimeoutRef = useRef(null);
+  const bombaTimeoutRef2 = useRef(null);
   const valvulaTimeoutRef = useRef(null);
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef(null);
 
   // Refs para evitar "stale closures" dentro del callback de EventSource
   const bombaPendienteRef = useRef(false);
+  const bombaPendienteRef2 = useRef(false);
   const valvulaPendienteRef = useRef(false);
   const controlBombaRef = useRef(false);
+  const controlBombaRef2 = useRef(false);
   const controlValvulaRef = useRef(false);
 
   useEffect(() => { bombaPendienteRef.current = bombaPendiente; }, [bombaPendiente]);
+  useEffect(() => { bombaPendienteRef2.current = bombaPendiente2; }, [bombaPendiente2]);
   useEffect(() => { valvulaPendienteRef.current = valvulaPendiente; }, [valvulaPendiente]);
   useEffect(() => { controlBombaRef.current = controlBomba; }, [controlBomba]);
+  useEffect(() => { controlBombaRef2.current = controlBomba2; }, [controlBomba2]);
   useEffect(() => { controlValvulaRef.current = controlValvula; }, [controlValvula]);
 
   const fetchData = async () => {
@@ -169,6 +181,14 @@ export default function App() {
         setBombaPendiente(false);
         setBombaSinConfirmar(false);
         clearTimeout(bombaTimeoutRef.current);
+      }
+
+      const estadoBomba2Real = control.data.bomba2 ?? false;
+      if (!bombaPendienteRef2.current || estadoBomba2Real === controlBombaRef2.current) {
+        setControlBomba2(estadoBomba2Real);
+        setBombaPendiente2(false);
+        setBombaSinConfirmar2(false);
+        clearTimeout(bombaTimeoutRef2.current);
       }
 
       const estadoValvulaReal = control.data.electrovalvula ?? false;
@@ -204,6 +224,24 @@ export default function App() {
       console.error("Error enviando comando de bomba", e);
       clearTimeout(bombaTimeoutRef.current);
       setBombaSinConfirmar(true);
+    }
+  };
+
+  const toggleBomba2 = async () => {
+    const nuevaAccion = !controlBomba2;
+    setControlBomba2(nuevaAccion);
+    setBombaPendiente2(true);
+    setBombaSinConfirmar2(false);
+
+    clearTimeout(bombaTimeoutRef2.current);
+    bombaTimeoutRef2.current = setTimeout(() => setBombaSinConfirmar2(true), 5000);
+
+    try {
+      await axios.put(`${API}/api/control/bomba2`, { accion: nuevaAccion });
+    } catch (e) {
+      console.error("Error enviando comando de bomba2", e);
+      clearTimeout(bombaTimeoutRef2.current);
+      setBombaSinConfirmar2(true);
     }
   };
 
@@ -246,6 +284,13 @@ export default function App() {
             setBombaPendiente(false);
             setBombaSinConfirmar(false);
             clearTimeout(bombaTimeoutRef.current);
+          }
+          const estadoBomba2Real = mensaje.data.estado_bomba2 ?? false;
+          if (!bombaPendienteRef2.current || estadoBomba2Real === controlBombaRef2.current) {
+            setControlBomba2(estadoBomba2Real);
+            setBombaPendiente2(false);
+            setBombaSinConfirmar2(false);
+            clearTimeout(bombaTimeoutRef2.current);
           }
           setTransformador((prev) => [...prev, mensaje.data].slice(-50));
         } else if (mensaje.tipo === "riego") {
@@ -412,9 +457,14 @@ export default function App() {
               <Led icon="💧" label="Estado Bomba (sensor)" active={!!ultima?.estado_bomba}
                 color={ultima?.estado_bomba ? "var(--ok)" : "var(--text-dim)"}
                 text={ultima?.estado_bomba ? "ON" : "OFF"} />
+              <Led icon="💧" label="Estado Bomba 2 (sensor)" active={!!ultima?.estado_bomba2}
+                color={ultima?.estado_bomba2 ? "var(--ok)" : "var(--text-dim)"}
+                text={ultima?.estado_bomba2 ? "ON" : "OFF"} />
               <Led icon="🚨" label="Alarma" active={!!ultima?.alarma}
                 color={ultima?.alarma ? "var(--alert)" : "var(--ok)"}
-                text={ultima?.alarma ? "ACTIVA" : "OK"} />
+                text={ultima?.alarma ? "ACTIVA" : "OK"}
+                pulse
+              />
             </div>
 
             <Switch
@@ -425,6 +475,15 @@ export default function App() {
               disabled={!sistemaOnline}
               pendiente={bombaPendiente}
               sinConfirmar={bombaSinConfirmar}
+            />
+            <Switch
+              label="🎛️ Control Manual de Bomba 2"
+              on={controlBomba2}
+              onToggle={toggleBomba2}
+              color="var(--copper)"
+              disabled={!sistemaOnline}
+              pendiente={bombaPendiente2}
+              sinConfirmar={bombaSinConfirmar2}
             />
           </div>
         </div>
