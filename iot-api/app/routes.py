@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
 from fastapi.responses import StreamingResponse
 from app import sse_manager
 from app import mqtt_listener
@@ -34,6 +35,7 @@ class TransformadorIn(BaseModel):
     estado_bomba: bool = False
     estado_bomba2: bool = False
     alarma: bool = False
+    timestamp_dispositivo: Optional[int] = None  # epoch unix (segundos) del ESP32 via NTP; 0/None si no sincronizo
 
 
 class RiegoIn(BaseModel):
@@ -111,7 +113,21 @@ def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get
     if sse_manager.ultimo_estado_transformador:
         alarma_anterior = sse_manager.ultimo_estado_transformador.get("alarma", False)
 
-    lectura = LecturaTransformador(**data.model_dump())
+    payload = data.model_dump()
+    ts_epoch = payload.pop("timestamp_dispositivo", None)
+
+    lectura = LecturaTransformador(**payload)
+    if ts_epoch:  # ignora None y 0 (ESP32 sin NTP sincronizado)
+        try:
+            # naive UTC explicito: la columna es TIMESTAMP sin zona,
+            # igual que created_at -- guardar un datetime "aware" aca
+            # podria quedar corrido de hora segun la sesion de Postgres.
+            lectura.timestamp_dispositivo = datetime.fromtimestamp(
+                ts_epoch, tz=timezone.utc
+            ).replace(tzinfo=None)
+        except (ValueError, OSError, OverflowError) as ex:
+            logger.warning(f"[LECTURA] timestamp_dispositivo invalido ({ts_epoch}): {ex}")
+
     db.add(lectura)
     db.commit()
     db.refresh(lectura)
@@ -127,6 +143,7 @@ def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get
         "estado_bomba2": lectura.estado_bomba2,
         "alarma": lectura.alarma,
         "created_at": lectura.created_at.isoformat() if lectura.created_at else None,
+        "timestamp_dispositivo": lectura.timestamp_dispositivo.isoformat() if lectura.timestamp_dispositivo else None,
     })
 
     # Push solo en el flanco de subida de la alarma (OFF -> ON).
