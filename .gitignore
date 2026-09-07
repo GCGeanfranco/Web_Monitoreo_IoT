@@ -8,3 +8,8 @@ __pycache__/
 test_ci.db
 test_local.db
 *.db
+# Firmware ESP32: vive local en el repo (para tenerlo a mano junto al
+# resto del proyecto) pero NUNCA se commitea, igual que .env. El archivo
+# autoritativo real se controla manualmente por version (ver nombre del
+# .ino) y por el estado_proyecto_*.md, no por Git.
+*.ino

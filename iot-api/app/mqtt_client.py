@@ -61,3 +61,26 @@ def publicar_comando_escaneo():
     except Exception as e:
         print(f"[MQTT] Error: {e}")
         return False
+
+
+def publicar_comando_borrar_fila(idx: int):
+    """Publica 'delfila:<idx>' en tesis-iot/autotransformador/control."""
+    try:
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
+        client.tls_set()
+        client.connect(MQTT_HOST, MQTT_PORT, 60)
+        client.loop_start()
+
+        topic = "tesis-iot/autotransformador/control"
+        info = client.publish(topic, f"delfila:{idx}", qos=1)
+        info.wait_for_publish(timeout=5)
+
+        client.loop_stop()
+        client.disconnect()
+
+        print(f"[MQTT] Publicado en {topic}: delfila:{idx}")
+        return True
+    except Exception as e:
+        print(f"[MQTT] Error: {e}")
+        return False

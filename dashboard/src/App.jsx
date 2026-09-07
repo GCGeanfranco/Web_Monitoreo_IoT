@@ -139,6 +139,9 @@ export default function App() {
   const [alertasError, setAlertasError] = useState(null);
   const [devMode, setDevMode] = useState(() => sessionStorage.getItem("devMode") === "1");
   const [escaneando, setEscaneando] = useState(false);
+  const [tablaTaps, setTablaTaps] = useState([]);
+  const [tablaTapsVisible, setTablaTapsVisible] = useState(false);
+  const [tablaTapsCargando, setTablaTapsCargando] = useState(false);
   const bombaTimeoutRef = useRef(null);
   const bombaTimeoutRef2 = useRef(null);
   const valvulaTimeoutRef = useRef(null);
@@ -382,6 +385,34 @@ export default function App() {
       setTimeout(() => setEscaneando(false), 8000);
     }
   };
+
+  const cargarTablaTaps = async () => {
+    setTablaTapsCargando(true);
+    try {
+      const res = await axios.get(`${API}/api/tabla-taps`);
+      setTablaTaps(res.data);
+    } catch (err) {
+      console.error("Error al cargar tabla de taps", err);
+    } finally {
+      setTablaTapsCargando(false);
+    }
+  };
+
+  const toggleTablaTaps = () => {
+    const nuevoValor = !tablaTapsVisible;
+    setTablaTapsVisible(nuevoValor);
+    if (nuevoValor) cargarTablaTaps();
+  };
+
+  const borrarFilaTabla = async (id) => {
+    if (!window.confirm("¿Borrar esta fila? Se eliminará también de la memoria del ESP32.")) return;
+    try {
+      await axios.delete(`${API}/api/tabla-taps/${id}`);
+      setTablaTaps((prev) => prev.filter((f) => f.id !== id));
+    } catch (err) {
+      alert("Error al borrar la fila: " + (err.response?.data?.detail || err.message || "desconocido"));
+    }
+  };
   
   const ocultarPanelDev = () => {
     setDevMode(false);
@@ -426,12 +457,50 @@ export default function App() {
           >
             {escaneando ? "Escaneando taps..." : "⚡ Escanear Taps"}
           </button>
+          <button
+            className="btn-escaneo"
+            onClick={toggleTablaTaps}
+            disabled={!sistemaOnline}
+          >
+            {tablaTapsVisible ? "Ocultar tabla" : "📋 Ver tabla de taps"}
+          </button>
           {!sistemaOnline && (
             <span className="dev-panel-hint">Sistema desconectado — no se puede escanear</span>
           )}
           <button className="btn-cerrar-dev" onClick={ocultarPanelDev} title="Ocultar panel dev">
             ✕
           </button>
+        </div>
+      )}
+
+      {devMode && tablaTapsVisible && (
+        <div className="tabla-taps-panel">
+          {tablaTapsCargando ? (
+            <span>Cargando...</span>
+          ) : tablaTaps.length === 0 ? (
+            <span>Sin filas registradas.</span>
+          ) : (
+            <table className="tabla-taps-tabla">
+              <thead>
+                <tr>
+                  <th>V.Entrada</th><th>Tap</th><th>V.Salida</th><th>Dif</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tablaTaps.map((f) => (
+                  <tr key={f.id}>
+                    <td>{f.v_entrada.toFixed(1)}V</td>
+                    <td>K{f.tap_optimo}</td>
+                    <td>{f.v_salida_medida.toFixed(1)}V</td>
+                    <td>{f.diferencia >= 0 ? "+" : ""}{f.diferencia.toFixed(1)}V</td>
+                    <td>
+                      <button className="btn-borrar-fila" onClick={() => borrarFilaTabla(f.id)} disabled={!sistemaOnline}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 

@@ -48,3 +48,15 @@ class PushSubscription(Base):
     p256dh = Column(String(255))
     auth = Column(String(255))
     created_at = Column(DateTime, server_default=func.now())
+
+
+class FilaTablaTaps(Base):
+    __tablename__ = "tabla_taps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    v_entrada = Column(Float)
+    tap_optimo = Column(Integer)
+    v_salida_medida = Column(Float)
+    diferencia = Column(Float)
+    nvs_index = Column(Integer)  # posicion en el array del ESP32 al momento del ultimo sync/insert
+    created_at = Column(DateTime, server_default=func.now())

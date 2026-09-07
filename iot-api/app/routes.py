@@ -14,10 +14,10 @@ from app.sse_manager import (
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB, PushSubscription
+from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB, PushSubscription, FilaTablaTaps
 from pydantic import BaseModel
 from typing import Optional
-from app.mqtt_client import publicar_comando, publicar_comando_escaneo
+from app.mqtt_client import publicar_comando, publicar_comando_escaneo, publicar_comando_borrar_fila
 from app.push_service import enviar_push_alarma, push_configurado, VAPID_PUBLIC_KEY
 
 
@@ -53,6 +53,14 @@ class PushKeys(BaseModel):
 class PushSubscriptionIn(BaseModel):
     endpoint: str
     keys: PushKeys
+
+
+class FilaTablaTapsIn(BaseModel):
+    v_entrada: float
+    tap_optimo: int
+    v_salida_medida: float
+    diferencia: float
+    nvs_index: int
 
 
 # --- Endpoint SSE ---
@@ -321,4 +329,54 @@ def desuscribir_push(data: dict, db: Session = Depends(get_db)):
     if endpoint:
         db.query(PushSubscription).filter_by(endpoint=endpoint).delete()
         db.commit()
+    return {"ok": True}
+
+# --- Endpoints Tabla de Taps Aprendida (espejo de solo lectura de la NVS) ---
+
+
+@router.post("/tabla-taps")
+def agregar_fila_tabla_taps(data: FilaTablaTapsIn, db: Session = Depends(get_db)):
+    """El ESP32 llama esto tras cada escaneo exitoso, con la fila que
+    acaba de guardar en su NVS. No es la fuente de verdad -- es un espejo."""
+    fila = FilaTablaTaps(**data.model_dump())
+    db.add(fila)
+    db.commit()
+    db.refresh(fila)
+    return {"ok": True, "id": fila.id}
+
+
+@router.post("/tabla-taps/sync")
+def sincronizar_tabla_taps(data: list[FilaTablaTapsIn], db: Session = Depends(get_db)):
+    """El ESP32 llama esto para reemplazar el espejo completo (al conectar,
+    tras borrar una fila, o tras un reset). Evita que el espejo quede
+    permanentemente desincronizado de la NVS real."""
+    db.query(FilaTablaTaps).delete()
+    for item in data:
+        db.add(FilaTablaTaps(**item.model_dump()))
+    db.commit()
+    return {"ok": True, "filas": len(data)}
+
+
+@router.get("/tabla-taps")
+def obtener_tabla_taps(db: Session = Depends(get_db)):
+    return db.query(FilaTablaTaps).order_by(FilaTablaTaps.nvs_index.asc()).all()
+
+
+@router.delete("/tabla-taps/{fila_id}")
+def borrar_fila_tabla_taps(fila_id: int, db: Session = Depends(get_db)):
+    """Borra una fila REAL: manda el comando al ESP32 para que la borre de
+    su NVS (fuente de verdad) y solo si el comando se publico con exito
+    se borra tambien del espejo en la BD. Si el ESP32 esta offline, el
+    comando MQTT se pierde (igual que /control/escaneo) y devolvemos 502
+    para que el dashboard lo muestre como error en vez de fingir exito."""
+    fila = db.query(FilaTablaTaps).filter_by(id=fila_id).first()
+    if not fila:
+        raise HTTPException(status_code=404, detail="Fila no encontrada")
+
+    ok = publicar_comando_borrar_fila(fila.nvs_index)
+    if not ok:
+        raise HTTPException(status_code=502, detail="No se pudo publicar el comando de borrado en MQTT (¿ESP32 offline?)")
+
+    db.delete(fila)
+    db.commit()
     return {"ok": True}

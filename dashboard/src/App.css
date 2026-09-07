@@ -148,6 +148,59 @@
   color: var(--alert);
 }
 
+/* Panel de tabla de taps aprendida (modo dev, espejo de la NVS) */
+.tabla-taps-panel {
+  margin-bottom: 20px;
+  padding: 10px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.tabla-taps-tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-taps-tabla th,
+.tabla-taps-tabla td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.tabla-taps-tabla th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
+
+.btn-borrar-fila {
+  background: transparent;
+  border: 1px solid var(--alert);
+  color: var(--alert);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.btn-borrar-fila:hover:not(:disabled) {
+  background: rgba(255, 100, 100, 0.12);
+}
+
+.btn-borrar-fila:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 @keyframes pulse {
 
   0%,
