@@ -13,8 +13,10 @@ class LecturaTransformador(Base):
     temperatura = Column(Float)
     estado_bomba = Column(Boolean, default=False)
     estado_bomba2 = Column(Boolean, default=False)
+    sistema_encendido = Column(Boolean, default=False)
     alarma = Column(Boolean, default=False)
-    timestamp_dispositivo = Column(DateTime, nullable=True)  # hora real capturada por el ESP32 (NTP, naive UTC); None si no vino en el payload
+    # hora real capturada por el ESP32 (NTP, naive UTC); None si no vino en el payload
+    timestamp_dispositivo = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 
@@ -58,5 +60,6 @@ class FilaTablaTaps(Base):
     tap_optimo = Column(Integer)
     v_salida_medida = Column(Float)
     diferencia = Column(Float)
-    nvs_index = Column(Integer)  # posicion en el array del ESP32 al momento del ultimo sync/insert
+    # posicion en el array del ESP32 al momento del ultimo sync/insert
+    nvs_index = Column(Integer)
     created_at = Column(DateTime, server_default=func.now())

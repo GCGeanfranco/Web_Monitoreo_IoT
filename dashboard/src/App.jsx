@@ -127,6 +127,9 @@ export default function App() {
   const [ultimoRiego, setUltimoRiego] = useState(null);
   const [controlBomba, setControlBomba] = useState(false);
   const [controlBomba2, setControlBomba2] = useState(false);
+  const [controlSistemaPower, setControlSistemaPower] = useState(false);
+  const [sistemaPowerPendiente, setSistemaPowerPendiente] = useState(false);
+  const [sistemaPowerSinConfirmar, setSistemaPowerSinConfirmar] = useState(false);
   const [controlValvula, setControlValvula] = useState(false);
   const [bombaPendiente, setBombaPendiente] = useState(false);
   const [bombaPendiente2, setBombaPendiente2] = useState(false);
@@ -154,10 +157,15 @@ export default function App() {
   const valvulaPendienteRef = useRef(false);
   const controlBombaRef = useRef(false);
   const controlBombaRef2 = useRef(false);
+  const controlSistemaPowerRef = useRef(false);
+  const sistemaPowerPendienteRef = useRef(false);
+  const sistemaPowerTimeoutRef = useRef(null);
   const controlValvulaRef = useRef(false);
 
   useEffect(() => { bombaPendienteRef.current = bombaPendiente; }, [bombaPendiente]);
   useEffect(() => { bombaPendienteRef2.current = bombaPendiente2; }, [bombaPendiente2]);
+  useEffect(() => { controlSistemaPowerRef.current = controlSistemaPower; }, [controlSistemaPower]);
+  useEffect(() => { sistemaPowerPendienteRef.current = sistemaPowerPendiente; }, [sistemaPowerPendiente]);
   useEffect(() => { valvulaPendienteRef.current = valvulaPendiente; }, [valvulaPendiente]);
   useEffect(() => { controlBombaRef.current = controlBomba; }, [controlBomba]);
   useEffect(() => { controlBombaRef2.current = controlBomba2; }, [controlBomba2]);
@@ -177,6 +185,15 @@ export default function App() {
       setRiego(rData);
       setUltima(tData[tData.length - 1]);
       setUltimoRiego(rData[rData.length - 1]);
+
+      const ultimaLectura = tData[tData.length - 1];
+      const estadoSistemaPowerReal = ultimaLectura?.sistema_encendido ?? false;
+      if (!sistemaPowerPendienteRef.current || estadoSistemaPowerReal === controlSistemaPowerRef.current) {
+        setControlSistemaPower(estadoSistemaPowerReal);
+        setSistemaPowerPendiente(false);
+        setSistemaPowerSinConfirmar(false);
+        clearTimeout(sistemaPowerTimeoutRef.current);
+      }
 
       const estadoBombaReal = control.data.bomba ?? false;
       if (!bombaPendienteRef.current || estadoBombaReal === controlBombaRef.current) {
@@ -248,6 +265,28 @@ export default function App() {
     }
   };
 
+  const toggleSistemaPower = async () => {
+    const nuevaAccion = !controlSistemaPower;
+    if (!nuevaAccion) {
+      const confirmar = window.confirm("¿Apagar todo el sistema? Se cortará el autotransformador, los taps y las bombas.");
+      if (!confirmar) return;
+    }
+    setControlSistemaPower(nuevaAccion);
+    setSistemaPowerPendiente(true);
+    setSistemaPowerSinConfirmar(false);
+
+    clearTimeout(sistemaPowerTimeoutRef.current);
+    sistemaPowerTimeoutRef.current = setTimeout(() => setSistemaPowerSinConfirmar(true), 8000);
+
+    try {
+      await axios.put(`${API}/api/control/sistema-power`, { accion: nuevaAccion });
+    } catch (e) {
+      console.error("Error enviando comando de encendido/apagado", e);
+      clearTimeout(sistemaPowerTimeoutRef.current);
+      setSistemaPowerSinConfirmar(true);
+    }
+  };
+
   const toggleValvula = async () => {
     const nuevaAccion = !controlValvula;
     setControlValvula(nuevaAccion);
@@ -295,6 +334,13 @@ export default function App() {
             setBombaSinConfirmar2(false);
             clearTimeout(bombaTimeoutRef2.current);
           }
+          const estadoSistemaPowerReal = mensaje.data.sistema_encendido ?? false;
+          if (!sistemaPowerPendienteRef.current || estadoSistemaPowerReal === controlSistemaPowerRef.current) {
+            setControlSistemaPower(estadoSistemaPowerReal);
+            setSistemaPowerPendiente(false);
+            setSistemaPowerSinConfirmar(false);
+            clearTimeout(sistemaPowerTimeoutRef.current);
+          }
           setTransformador((prev) => [...prev, mensaje.data].slice(-50));
         } else if (mensaje.tipo === "riego") {
           setUltimoRiego(mensaje.data);
@@ -340,7 +386,7 @@ export default function App() {
   // tenga que volver a tocarlo cada vez que abre la app).
   useEffect(() => {
     if (!pushSoportado()) return;
-    yaEstaSuscrito().then(setAlertasActivas).catch(() => {});
+    yaEstaSuscrito().then(setAlertasActivas).catch(() => { });
   }, []);
 
   const handleToggleAlertas = async () => {
@@ -413,7 +459,7 @@ export default function App() {
       alert("Error al borrar la fila: " + (err.response?.data?.detail || err.message || "desconocido"));
     }
   };
-  
+
   const ocultarPanelDev = () => {
     setDevMode(false);
     sessionStorage.removeItem("devMode");
@@ -439,8 +485,8 @@ export default function App() {
               {alertasCargando
                 ? "..."
                 : alertasActivas
-                ? "🔔 Alertas activadas"
-                : "🔕 Activar alertas"}
+                  ? "🔔 Alertas activadas"
+                  : "🔕 Activar alertas"}
             </button>
             {alertasError && <div className="alertas-error">{alertasError}</div>}
           </div>
@@ -503,6 +549,28 @@ export default function App() {
           )}
         </div>
       )}
+
+      <div className="sistema-power-card">
+        <div className="sistema-power-info">
+          <span className="sistema-power-label">Sistema completo</span>
+          <span className={controlSistemaPower ? "sistema-power-estado on" : "sistema-power-estado off"}>
+            {controlSistemaPower ? "🟢 Encendido" : "⚪ Apagado"}
+          </span>
+          {sistemaPowerSinConfirmar && (
+            <span className="sistema-power-advertencia">⚠️ No confirmado</span>
+          )}
+        </div>
+        <button
+          className={controlSistemaPower ? "btn-sistema-power btn-apagar" : "btn-sistema-power btn-encender"}
+          onClick={toggleSistemaPower}
+          disabled={!sistemaOnline || sistemaPowerPendiente}
+        >
+          {sistemaPowerPendiente ? "Esperando..." : controlSistemaPower ? "Apagar sistema" : "Encender sistema"}
+        </button>
+        {!sistemaOnline && (
+          <span className="dev-panel-hint">ESP32 desconectado — no se puede controlar</span>
+        )}
+      </div>
 
       <div className="module-grid">
         <div className="module" style={{ "--module-color": "var(--copper)" }}>

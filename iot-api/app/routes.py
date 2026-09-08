@@ -34,8 +34,10 @@ class TransformadorIn(BaseModel):
     temperatura: float
     estado_bomba: bool = False
     estado_bomba2: bool = False
+    sistema_encendido: bool = False
     alarma: bool = False
-    timestamp_dispositivo: Optional[int] = None  # epoch unix (segundos) del ESP32 via NTP; 0/None si no sincronizo
+    # epoch unix (segundos) del ESP32 via NTP; 0/None si no sincronizo
+    timestamp_dispositivo: Optional[int] = None
 
 
 class RiegoIn(BaseModel):
@@ -119,7 +121,8 @@ def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get
     # en cada lectura mientras la alarma se mantiene activa).
     alarma_anterior = False
     if sse_manager.ultimo_estado_transformador:
-        alarma_anterior = sse_manager.ultimo_estado_transformador.get("alarma", False)
+        alarma_anterior = sse_manager.ultimo_estado_transformador.get(
+            "alarma", False)
 
     payload = data.model_dump()
     ts_epoch = payload.pop("timestamp_dispositivo", None)
@@ -134,7 +137,8 @@ def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get
                 ts_epoch, tz=timezone.utc
             ).replace(tzinfo=None)
         except (ValueError, OSError, OverflowError) as ex:
-            logger.warning(f"[LECTURA] timestamp_dispositivo invalido ({ts_epoch}): {ex}")
+            logger.warning(
+                f"[LECTURA] timestamp_dispositivo invalido ({ts_epoch}): {ex}")
 
     db.add(lectura)
     db.commit()
@@ -149,6 +153,7 @@ def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get
         "temperatura": lectura.temperatura,
         "estado_bomba": lectura.estado_bomba,
         "estado_bomba2": lectura.estado_bomba2,
+        "sistema_encendido": lectura.sistema_encendido,
         "alarma": lectura.alarma,
         "created_at": lectura.created_at.isoformat() if lectura.created_at else None,
         "timestamp_dispositivo": lectura.timestamp_dispositivo.isoformat() if lectura.timestamp_dispositivo else None,
@@ -230,7 +235,8 @@ def controlar_bomba(data: ComandoControl, db: Session = Depends(get_db)):
 
 @router.put("/control/bomba2")
 def controlar_bomba2(data: ComandoControl, db: Session = Depends(get_db)):
-    comando = db.query(ComandoControlDB).filter_by(dispositivo="bomba2").first()
+    comando = db.query(ComandoControlDB).filter_by(
+        dispositivo="bomba2").first()
     if comando:
         comando.accion = data.accion
         comando.ejecutado = False
@@ -244,6 +250,24 @@ def controlar_bomba2(data: ComandoControl, db: Session = Depends(get_db)):
     publicar_comando("bomba2", data.accion)
 
     return {"ok": True, "dispositivo": "bomba2", "accion": data.accion}
+
+
+@router.put("/control/sistema-power")
+def controlar_sistema_power(data: ComandoControl, db: Session = Depends(get_db)):
+    comando = db.query(ComandoControlDB).filter_by(
+        dispositivo="sistema_power").first()
+    if comando:
+        comando.accion = data.accion
+        comando.ejecutado = False
+    else:
+        comando = ComandoControlDB(
+            dispositivo="sistema_power", accion=data.accion, ejecutado=False)
+        db.add(comando)
+    db.commit()
+
+    publicar_comando("sistema/power", data.accion)
+
+    return {"ok": True, "dispositivo": "sistema_power", "accion": data.accion}
 
 
 @router.put("/control/electrovalvula")
@@ -278,7 +302,8 @@ def solicitar_escaneo():
     """
     ok = publicar_comando_escaneo()
     if not ok:
-        raise HTTPException(status_code=502, detail="No se pudo publicar el comando de escaneo en MQTT")
+        raise HTTPException(
+            status_code=502, detail="No se pudo publicar el comando de escaneo en MQTT")
     return {"ok": True, "comando": "scan"}
 
 
@@ -290,11 +315,18 @@ def obtener_estado_control(db: Session = Depends(get_db)):
     ultimo_riego = db.query(LecturaRiego).order_by(
         LecturaRiego.created_at.desc()
     ).first()
+    comando_power = db.query(ComandoControlDB).filter_by(
+        dispositivo="sistema_power").first()
 
     return {
         "bomba": ultima_lectura.estado_bomba if ultima_lectura else False,
         "bomba2": ultima_lectura.estado_bomba2 if ultima_lectura else False,
         "electrovalvula": ultimo_riego.electrovalvula_activa if ultimo_riego else False,
+        # A diferencia de bomba/bomba2 (que reflejan la ULTIMA LECTURA real),
+        # esto refleja el COMANDO DESEADO en comandos_control -- es el respaldo
+        # HTTP que usa leerComandosControl() en el ESP32 si se pierde el MQTT,
+        # y necesita saber que se le esta pidiendo, no lo que ya sabe que hace.
+        "sistema_on": comando_power.accion if comando_power else False,
     }
 
 # --- Endpoints Push Notifications ---
@@ -309,7 +341,8 @@ def obtener_vapid_public_key():
 
 @router.post("/push/subscribe")
 def suscribir_push(data: PushSubscriptionIn, db: Session = Depends(get_db)):
-    existente = db.query(PushSubscription).filter_by(endpoint=data.endpoint).first()
+    existente = db.query(PushSubscription).filter_by(
+        endpoint=data.endpoint).first()
     if existente:
         existente.p256dh = data.keys.p256dh
         existente.auth = data.keys.auth
@@ -375,7 +408,8 @@ def borrar_fila_tabla_taps(fila_id: int, db: Session = Depends(get_db)):
 
     ok = publicar_comando_borrar_fila(fila.nvs_index)
     if not ok:
-        raise HTTPException(status_code=502, detail="No se pudo publicar el comando de borrado en MQTT (¿ESP32 offline?)")
+        raise HTTPException(
+            status_code=502, detail="No se pudo publicar el comando de borrado en MQTT (¿ESP32 offline?)")
 
     db.delete(fila)
     db.commit()
