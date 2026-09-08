@@ -550,7 +550,7 @@ export default function App() {
         </div>
       )}
 
-      <div className="sistema-power-card">
+      <div className="sistema-power-card" data-on={controlSistemaPower}>
         <div className="sistema-power-info">
           <span className="sistema-power-label">Sistema completo</span>
           <span className={controlSistemaPower ? "sistema-power-estado on" : "sistema-power-estado off"}>
@@ -560,16 +560,18 @@ export default function App() {
             <span className="sistema-power-advertencia">⚠️ No confirmado</span>
           )}
         </div>
-        <button
-          className={controlSistemaPower ? "btn-sistema-power btn-apagar" : "btn-sistema-power btn-encender"}
-          onClick={toggleSistemaPower}
-          disabled={!sistemaOnline || sistemaPowerPendiente}
-        >
-          {sistemaPowerPendiente ? "Esperando..." : controlSistemaPower ? "Apagar sistema" : "Encender sistema"}
-        </button>
-        {!sistemaOnline && (
-          <span className="dev-panel-hint">ESP32 desconectado — no se puede controlar</span>
-        )}
+        <div className="sistema-power-actions">
+          <button
+            className={controlSistemaPower ? "btn-sistema-power btn-apagar" : "btn-sistema-power btn-encender"}
+            onClick={toggleSistemaPower}
+            disabled={!sistemaOnline || sistemaPowerPendiente}
+          >
+            {sistemaPowerPendiente ? "Esperando..." : controlSistemaPower ? "Apagar sistema" : "Encender sistema"}
+          </button>
+          {!sistemaOnline && (
+            <span className="dev-panel-hint">ESP32 desconectado — no se puede controlar</span>
+          )}
+        </div>
       </div>
 
       <div className="module-grid">

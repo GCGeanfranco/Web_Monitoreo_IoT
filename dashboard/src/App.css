@@ -349,9 +349,12 @@
 }
 
 @keyframes led-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 12px 3px var(--led-color), 0 0 0 3px rgba(255, 255, 255, 0.08);
   }
+
   50% {
     box-shadow: 0 0 22px 7px var(--led-color), 0 0 0 3px rgba(255, 255, 255, 0.08);
   }
@@ -502,4 +505,116 @@
   color: var(--text-dim);
   margin: 0 0 14px;
   text-align: center;
+}
+
+/* Control maestro de encendido/apagado de todo el sistema */
+.sistema-power-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-dim);
+  border-radius: 12px;
+}
+
+.sistema-power-card[data-on="true"] {
+  border-left-color: var(--ok);
+}
+
+.sistema-power-card[data-on="false"] {
+  border-left-color: var(--alert);
+}
+
+@media (min-width: 640px) {
+  .sistema-power-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.sistema-power-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sistema-power-label {
+  font-family: var(--display);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.sistema-power-estado {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.sistema-power-estado.on {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.sistema-power-advertencia {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--alert);
+}
+
+.sistema-power-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn-sistema-power {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .btn-sistema-power {
+    width: auto;
+  }
+}
+
+.btn-sistema-power:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-sistema-power:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-sistema-power.btn-encender {
+  background: rgba(111, 191, 115, 0.12);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.btn-sistema-power.btn-apagar {
+  background: rgba(209, 73, 91, 0.12);
+  border-color: var(--alert);
+  color: var(--alert);
 }
