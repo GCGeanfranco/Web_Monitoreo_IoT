@@ -155,6 +155,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState(null);
   const [loginCargando, setLoginCargando] = useState(false);
+  const [mostrarLoginForm, setMostrarLoginForm] = useState(false);
   const bombaTimeoutRef = useRef(null);
   const bombaTimeoutRef2 = useRef(null);
   const valvulaTimeoutRef = useRef(null);
@@ -428,6 +429,7 @@ export default function App() {
       setUsuario({ nombre: res.data.nombre, username: res.data.username });
       setLoginUsername("");
       setLoginPassword("");
+      setMostrarLoginForm(false);
     } catch (err) {
       setLoginError(err.response?.data?.detail || "Usuario o password incorrectos");
     } finally {
@@ -546,7 +548,7 @@ export default function App() {
             {alertasError && <div className="alertas-error">{alertasError}</div>}
           </div>
         )}
-        {usuario && (
+        {usuario ? (
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ fontFamily: "var(--mono)", fontSize: "12px", color: "var(--text-dim)" }}>
               👤 {usuario.nombre}
@@ -555,6 +557,12 @@ export default function App() {
               Cerrar sesión
             </button>
           </div>
+        ) : (
+          !sesionCargando && (
+            <button className="btn-alertas" onClick={() => setMostrarLoginForm(true)} title="Iniciar sesión">
+              🔒 Iniciar sesión
+            </button>
+          )
         )}
       </div>
 
@@ -763,26 +771,36 @@ export default function App() {
         </ResponsiveContainer>
       </div>
 
-      {sesionCargando ? (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-        }}>
-          <span style={{ fontFamily: "var(--mono)", color: "var(--text-dim)" }}>Verificando sesión...</span>
-        </div>
-      ) : !usuario && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-        }}>
+      {mostrarLoginForm && !usuario && (
+        <div
+          onClick={() => setMostrarLoginForm(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+          }}
+        >
           <form
             onSubmit={handleLogin}
+            onClick={(e) => e.stopPropagation()}
             style={{
               background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "12px",
               padding: "24px", width: "320px", maxWidth: "90vw",
               display: "flex", flexDirection: "column", gap: "12px",
+              position: "relative",
             }}
           >
+            <button
+              type="button"
+              onClick={() => setMostrarLoginForm(false)}
+              title="Cerrar"
+              style={{
+                position: "absolute", top: "10px", right: "12px",
+                background: "none", border: "none", color: "var(--text-dim)",
+                fontSize: "16px", cursor: "pointer",
+              }}
+            >
+              ✕
+            </button>
             <h2 style={{ margin: 0, fontSize: "18px" }}>🔐 Iniciar sesión</h2>
             <p style={{ margin: 0, fontSize: "12px", color: "var(--text-dim)" }}>
               El monitoreo es público; solo el control requiere sesión.
