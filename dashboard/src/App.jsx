@@ -14,6 +14,10 @@ import {
 
 const API = "https://web-monitoreo-iot.onrender.com";
 
+// El JWT viaja solo en la cookie httpOnly: todas las llamadas axios deben
+// incluir credenciales para que el navegador adjunte la cookie de sesion.
+axios.defaults.withCredentials = true;
+
 const formatearHora = (timestamp) => {
   if (!timestamp) return "";
   const fecha = new Date(timestamp + "-05:00");
@@ -85,7 +89,7 @@ function TapIndicator({ active = 0, total = 5, color }) {
   );
 }
 
-function Switch({ label, on, onToggle, color, disabled = false, pendiente = false, sinConfirmar = false }) {
+function Switch({ label, on, onToggle, color, disabled = false, pendiente = false, sinConfirmar = false, disabledHint }) {
   return (
     <div className="switch-card" style={{ "--sw-color": color }}>
       <div className="switch-label">{label}</div>
@@ -113,7 +117,7 @@ function Switch({ label, on, onToggle, color, disabled = false, pendiente = fals
       )}
       {disabled && (
         <span style={{ fontSize: "12px", color: "var(--alert)" }}>
-          ⚠️ Sistema desconectado
+          {disabledHint || "⚠️ Sistema desconectado"}
         </span>
       )}
     </div>
@@ -145,6 +149,12 @@ export default function App() {
   const [tablaTaps, setTablaTaps] = useState([]);
   const [tablaTapsVisible, setTablaTapsVisible] = useState(false);
   const [tablaTapsCargando, setTablaTapsCargando] = useState(false);
+  const [usuario, setUsuario] = useState(null);
+  const [sesionCargando, setSesionCargando] = useState(true);
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState(null);
+  const [loginCargando, setLoginCargando] = useState(false);
   const bombaTimeoutRef = useRef(null);
   const bombaTimeoutRef2 = useRef(null);
   const valvulaTimeoutRef = useRef(null);
@@ -389,6 +399,51 @@ export default function App() {
     yaEstaSuscrito().then(setAlertasActivas).catch(() => { });
   }, []);
 
+  // Estado de sesion: al montar se consulta /api/auth/me. La cookie httpOnly
+  // viaja sola en cada request; si no hay sesion se muestra el login. El
+  // monitoreo sigue siendo publico: solo las acciones de control se bloquean.
+  useEffect(() => {
+    const verificarSesion = async () => {
+      try {
+        const res = await axios.get(`${API}/api/auth/me`);
+        setUsuario(res.data);
+      } catch {
+        setUsuario(null);
+      } finally {
+        setSesionCargando(false);
+      }
+    };
+    verificarSesion();
+  }, []);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginError(null);
+    setLoginCargando(true);
+    try {
+      const res = await axios.post(`${API}/api/auth/login`, {
+        username: loginUsername,
+        password: loginPassword,
+      });
+      setUsuario({ nombre: res.data.nombre, username: res.data.username });
+      setLoginUsername("");
+      setLoginPassword("");
+    } catch (err) {
+      setLoginError(err.response?.data?.detail || "Usuario o password incorrectos");
+    } finally {
+      setLoginCargando(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${API}/api/auth/logout`);
+    } catch (e) {
+      console.error("Error al cerrar sesion", e);
+    }
+    setUsuario(null);
+  };
+
   const handleToggleAlertas = async () => {
     setAlertasError(null);
     setAlertasCargando(true);
@@ -491,6 +546,16 @@ export default function App() {
             {alertasError && <div className="alertas-error">{alertasError}</div>}
           </div>
         )}
+        {usuario && (
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontFamily: "var(--mono)", fontSize: "12px", color: "var(--text-dim)" }}>
+              👤 {usuario.nombre}
+            </span>
+            <button className="btn-alertas" onClick={handleLogout} title="Cerrar sesión">
+              Cerrar sesión
+            </button>
+          </div>
+        )}
       </div>
 
       {devMode && (
@@ -499,7 +564,7 @@ export default function App() {
           <button
             className="btn-escaneo"
             onClick={solicitarEscaneo}
-            disabled={escaneando || !sistemaOnline}
+            disabled={escaneando || !sistemaOnline || !usuario}
           >
             {escaneando ? "Escaneando taps..." : "⚡ Escanear Taps"}
           </button>
@@ -540,7 +605,7 @@ export default function App() {
                     <td>{f.v_salida_medida.toFixed(1)}V</td>
                     <td>{f.diferencia >= 0 ? "+" : ""}{f.diferencia.toFixed(1)}V</td>
                     <td>
-                      <button className="btn-borrar-fila" onClick={() => borrarFilaTabla(f.id)} disabled={!sistemaOnline}>✕</button>
+                      <button className="btn-borrar-fila" onClick={() => borrarFilaTabla(f.id)} disabled={!sistemaOnline || !usuario}>✕</button>
                     </td>
                   </tr>
                 ))}
@@ -564,7 +629,7 @@ export default function App() {
           <button
             className={controlSistemaPower ? "btn-sistema-power btn-apagar" : "btn-sistema-power btn-encender"}
             onClick={toggleSistemaPower}
-            disabled={!sistemaOnline || sistemaPowerPendiente}
+            disabled={!sistemaOnline || sistemaPowerPendiente || !usuario}
           >
             {sistemaPowerPendiente ? "Esperando..." : controlSistemaPower ? "Apagar sistema" : "Encender sistema"}
           </button>
@@ -611,7 +676,8 @@ export default function App() {
               on={controlBomba}
               onToggle={toggleBomba}
               color="var(--copper)"
-              disabled={!sistemaOnline}
+              disabled={!sistemaOnline || !usuario}
+              disabledHint={!usuario ? "🔒 Inicia sesión para controlar" : undefined}
               pendiente={bombaPendiente}
               sinConfirmar={bombaSinConfirmar}
             />
@@ -620,7 +686,8 @@ export default function App() {
               on={controlBomba2}
               onToggle={toggleBomba2}
               color="var(--copper)"
-              disabled={!sistemaOnline}
+              disabled={!sistemaOnline || !usuario}
+              disabledHint={!usuario ? "🔒 Inicia sesión para controlar" : undefined}
               pendiente={bombaPendiente2}
               sinConfirmar={bombaSinConfirmar2}
             />
@@ -656,7 +723,8 @@ export default function App() {
               on={controlValvula}
               onToggle={toggleValvula}
               color="var(--water)"
-              disabled={!sistemaOnline}
+              disabled={!sistemaOnline || !usuario}
+              disabledHint={!usuario ? "🔒 Inicia sesión para controlar" : undefined}
               pendiente={valvulaPendiente}
             />
           </div>
@@ -694,6 +762,71 @@ export default function App() {
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {sesionCargando ? (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+        }}>
+          <span style={{ fontFamily: "var(--mono)", color: "var(--text-dim)" }}>Verificando sesión...</span>
+        </div>
+      ) : !usuario && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+        }}>
+          <form
+            onSubmit={handleLogin}
+            style={{
+              background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "12px",
+              padding: "24px", width: "320px", maxWidth: "90vw",
+              display: "flex", flexDirection: "column", gap: "12px",
+            }}
+          >
+            <h2 style={{ margin: 0, fontSize: "18px" }}>🔐 Iniciar sesión</h2>
+            <p style={{ margin: 0, fontSize: "12px", color: "var(--text-dim)" }}>
+              El monitoreo es público; solo el control requiere sesión.
+            </p>
+            <input
+              type="text"
+              placeholder="Usuario"
+              value={loginUsername}
+              onChange={(e) => setLoginUsername(e.target.value)}
+              required
+              autoComplete="username"
+              style={{
+                padding: "9px 10px", borderRadius: "6px", border: "1px solid var(--border)",
+                background: "var(--panel-2)", color: "var(--text)", outline: "none",
+              }}
+            />
+            <input
+              type="password"
+              placeholder="Contraseña"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              style={{
+                padding: "9px 10px", borderRadius: "6px", border: "1px solid var(--border)",
+                background: "var(--panel-2)", color: "var(--text)", outline: "none",
+              }}
+            />
+            {loginError && (
+              <span style={{ fontSize: "12px", color: "var(--alert)" }}>{loginError}</span>
+            )}
+            <button
+              type="submit"
+              disabled={loginCargando}
+              style={{
+                padding: "10px", borderRadius: "6px", border: "none",
+                background: "var(--ok)", color: "#0b0d0c", fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              {loginCargando ? "Entrando..." : "Entrar"}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

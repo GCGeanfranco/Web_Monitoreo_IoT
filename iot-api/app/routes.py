@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from fastapi.responses import StreamingResponse
 from app import sse_manager
@@ -11,14 +12,15 @@ from app.sse_manager import (
     ultimo_estado_transformador,
     ultimo_estado_riego,
 )
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB, PushSubscription, FilaTablaTaps
+from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB, PushSubscription, FilaTablaTaps, Usuario
 from pydantic import BaseModel
 from typing import Optional
 from app.mqtt_client import publicar_comando, publicar_comando_escaneo, publicar_comando_borrar_fila
 from app.push_service import enviar_push_alarma, push_configurado, VAPID_PUBLIC_KEY
+from app.auth import hashear_password, verificar_password, crear_token, get_current_user, COOKIE_NAME
 
 
 router = APIRouter()
@@ -63,6 +65,18 @@ class FilaTablaTapsIn(BaseModel):
     v_salida_medida: float
     diferencia: float
     nvs_index: int
+
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+
+class RegistroIn(BaseModel):
+    nombre: str
+    username: str
+    password: str
+    codigo_invitacion: str
 
 
 # --- Endpoint SSE ---
@@ -212,11 +226,63 @@ def obtener_lecturas_riego(db: Session = Depends(get_db)):
 class ComandoControl(BaseModel):
     accion: bool
 
+# --- Endpoints Auth ---
+
+
+@router.post("/auth/registrar")
+def registrar_usuario(data: RegistroIn, db: Session = Depends(get_db)):
+    codigo_esperado = os.getenv("INVITE_CODE")
+    if not codigo_esperado or data.codigo_invitacion != codigo_esperado:
+        raise HTTPException(status_code=403, detail="Codigo de invitacion invalido")
+
+    existente = db.query(Usuario).filter_by(username=data.username).first()
+    if existente:
+        raise HTTPException(status_code=409, detail="Ese username ya existe")
+
+    usuario = Usuario(
+        nombre=data.nombre,
+        username=data.username,
+        password_hash=hashear_password(data.password),
+    )
+    db.add(usuario)
+    db.commit()
+    db.refresh(usuario)
+    return {"ok": True, "id": usuario.id}
+
+
+@router.post("/auth/login")
+def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
+    usuario = db.query(Usuario).filter_by(username=data.username).first()
+    if not usuario or not verificar_password(data.password, usuario.password_hash):
+        raise HTTPException(status_code=401, detail="Usuario o password incorrectos")
+
+    token = crear_token(usuario.id, usuario.username)
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7,
+    )
+    return {"ok": True, "nombre": usuario.nombre, "username": usuario.username}
+
+
+@router.post("/auth/logout")
+def logout(response: Response):
+    response.delete_cookie(COOKIE_NAME)
+    return {"ok": True}
+
+
+@router.get("/auth/me")
+def me(usuario: Usuario = Depends(get_current_user)):
+    return {"nombre": usuario.nombre, "username": usuario.username}
+
 # --- Endpoints Control ---
 
 
 @router.put("/control/bomba")
-def controlar_bomba(data: ComandoControl, db: Session = Depends(get_db)):
+def controlar_bomba(data: ComandoControl, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
     comando = db.query(ComandoControlDB).filter_by(dispositivo="bomba").first()
     if comando:
         comando.accion = data.accion
@@ -234,7 +300,7 @@ def controlar_bomba(data: ComandoControl, db: Session = Depends(get_db)):
 
 
 @router.put("/control/bomba2")
-def controlar_bomba2(data: ComandoControl, db: Session = Depends(get_db)):
+def controlar_bomba2(data: ComandoControl, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
     comando = db.query(ComandoControlDB).filter_by(
         dispositivo="bomba2").first()
     if comando:
@@ -253,7 +319,7 @@ def controlar_bomba2(data: ComandoControl, db: Session = Depends(get_db)):
 
 
 @router.put("/control/sistema-power")
-def controlar_sistema_power(data: ComandoControl, db: Session = Depends(get_db)):
+def controlar_sistema_power(data: ComandoControl, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
     comando = db.query(ComandoControlDB).filter_by(
         dispositivo="sistema_power").first()
     if comando:
@@ -271,7 +337,7 @@ def controlar_sistema_power(data: ComandoControl, db: Session = Depends(get_db))
 
 
 @router.put("/control/electrovalvula")
-def controlar_electrovalvula(data: ComandoControl, db: Session = Depends(get_db)):
+def controlar_electrovalvula(data: ComandoControl, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
     comando = db.query(ComandoControlDB).filter_by(
         dispositivo="electrovalvula").first()
     if comando:
@@ -290,7 +356,7 @@ def controlar_electrovalvula(data: ComandoControl, db: Session = Depends(get_db)
 
 
 @router.post("/control/escaneo")
-def solicitar_escaneo():
+def solicitar_escaneo(usuario: Usuario = Depends(get_current_user)):
     """
     Dispara un escaneo remoto de los 10 taps en el ESP32 (comando 'scan' via
     MQTT). No persiste estado en BD: a diferencia de bomba/electrovalvula,
@@ -396,7 +462,7 @@ def obtener_tabla_taps(db: Session = Depends(get_db)):
 
 
 @router.delete("/tabla-taps/{fila_id}")
-def borrar_fila_tabla_taps(fila_id: int, db: Session = Depends(get_db)):
+def borrar_fila_tabla_taps(fila_id: int, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
     """Borra una fila REAL: manda el comando al ESP32 para que la borre de
     su NVS (fuente de verdad) y solo si el comando se publico con exito
     se borra tambien del espejo en la BD. Si el ESP32 esta offline, el

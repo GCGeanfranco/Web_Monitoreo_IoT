@@ -63,3 +63,13 @@ class FilaTablaTaps(Base):
     # posicion en el array del ESP32 al momento del ultimo sync/insert
     nvs_index = Column(Integer)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100))
+    username = Column(String(50), unique=True, index=True)
+    password_hash = Column(String(255))
+    created_at = Column(DateTime, server_default=func.now())
