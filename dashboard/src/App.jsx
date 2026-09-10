@@ -12,7 +12,7 @@ import {
   yaEstaSuscrito,
 } from "./pushNotifications";
 
-const API = "https://web-monitoreo-iot.onrender.com";
+const API = "";
 
 // El JWT viaja solo en la cookie httpOnly: todas las llamadas axios deben
 // incluir credenciales para que el navegador adjunte la cookie de sesion.
