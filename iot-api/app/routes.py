@@ -15,7 +15,7 @@ from app.sse_manager import (
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB, PushSubscription, FilaTablaTaps, Usuario
+from app.models import LecturaTransformador, LecturaRiego, ComandoControlDB, PushSubscription, FilaTablaTaps, Usuario, EscaneoDetalle
 from pydantic import BaseModel
 from typing import Optional
 from app.mqtt_client import publicar_comando, publicar_comando_escaneo, publicar_comando_borrar_fila
@@ -65,6 +65,21 @@ class FilaTablaTapsIn(BaseModel):
     v_salida_medida: float
     diferencia: float
     nvs_index: int
+
+
+class EscaneoDetalleIn(BaseModel):
+    v_entrada: float
+    tap_optimo: int
+    tap1_voltaje: float
+    tap2_voltaje: float
+    tap3_voltaje: float
+    tap4_voltaje: float
+    tap5_voltaje: float
+    tap6_voltaje: float
+    tap7_voltaje: float
+    tap8_voltaje: float
+    tap9_voltaje: float
+    tap10_voltaje: float
 
 
 class LoginIn(BaseModel):
@@ -233,7 +248,8 @@ class ComandoControl(BaseModel):
 def registrar_usuario(data: RegistroIn, db: Session = Depends(get_db)):
     codigo_esperado = os.getenv("INVITE_CODE")
     if not codigo_esperado or data.codigo_invitacion != codigo_esperado:
-        raise HTTPException(status_code=403, detail="Codigo de invitacion invalido")
+        raise HTTPException(
+            status_code=403, detail="Codigo de invitacion invalido")
 
     existente = db.query(Usuario).filter_by(username=data.username).first()
     if existente:
@@ -254,7 +270,8 @@ def registrar_usuario(data: RegistroIn, db: Session = Depends(get_db)):
 def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter_by(username=data.username).first()
     if not usuario or not verificar_password(data.password, usuario.password_hash):
-        raise HTTPException(status_code=401, detail="Usuario o password incorrectos")
+        raise HTTPException(
+            status_code=401, detail="Usuario o password incorrectos")
 
     token = crear_token(usuario.id, usuario.username)
     response.set_cookie(
@@ -480,3 +497,24 @@ def borrar_fila_tabla_taps(fila_id: int, db: Session = Depends(get_db), usuario:
     db.delete(fila)
     db.commit()
     return {"ok": True}
+
+
+# --- Endpoints Detalle de Escaneo (historial de voltaje por cada uno de los 10 taps) ---
+
+
+@router.post("/escaneo-detalle")
+def agregar_escaneo_detalle(data: EscaneoDetalleIn, db: Session = Depends(get_db)):
+    """El ESP32 llama esto al final de cada escaneo completo, con el voltaje
+    medido en los 10 taps (no solo el elegido). Es historial puro para
+    verificación humana -- independiente de la tabla aprendida (NVS)."""
+    fila = EscaneoDetalle(**data.model_dump())
+    db.add(fila)
+    db.commit()
+    db.refresh(fila)
+    return {"ok": True, "id": fila.id}
+
+
+@router.get("/escaneo-detalle")
+def obtener_escaneo_detalle(db: Session = Depends(get_db)):
+    """Últimos 50 escaneos completos, más reciente primero."""
+    return db.query(EscaneoDetalle).order_by(EscaneoDetalle.id.desc()).limit(50).all()

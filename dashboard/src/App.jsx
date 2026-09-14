@@ -12,7 +12,7 @@ import {
   yaEstaSuscrito,
 } from "./pushNotifications";
 
-const API = "";
+const API = "https://web-monitoreo-iot.onrender.com";
 
 // El JWT viaja solo en la cookie httpOnly: todas las llamadas axios deben
 // incluir credenciales para que el navegador adjunte la cookie de sesion.
@@ -149,6 +149,9 @@ export default function App() {
   const [tablaTaps, setTablaTaps] = useState([]);
   const [tablaTapsVisible, setTablaTapsVisible] = useState(false);
   const [tablaTapsCargando, setTablaTapsCargando] = useState(false);
+  const [detalleEscaneos, setDetalleEscaneos] = useState([]);
+  const [detalleEscaneosVisible, setDetalleEscaneosVisible] = useState(false);
+  const [detalleEscaneosCargando, setDetalleEscaneosCargando] = useState(false);
   const [usuario, setUsuario] = useState(null);
   const [sesionCargando, setSesionCargando] = useState(true);
   const [loginUsername, setLoginUsername] = useState("");
@@ -517,6 +520,24 @@ export default function App() {
     }
   };
 
+  const cargarDetalleEscaneos = async () => {
+    setDetalleEscaneosCargando(true);
+    try {
+      const res = await axios.get(`${API}/api/escaneo-detalle`);
+      setDetalleEscaneos(res.data);
+    } catch (err) {
+      console.error("Error al cargar detalle de escaneos", err);
+    } finally {
+      setDetalleEscaneosCargando(false);
+    }
+  };
+
+  const toggleDetalleEscaneos = () => {
+    const nuevoValor = !detalleEscaneosVisible;
+    setDetalleEscaneosVisible(nuevoValor);
+    if (nuevoValor) cargarDetalleEscaneos();
+  };
+
   const ocultarPanelDev = () => {
     setDevMode(false);
     sessionStorage.removeItem("devMode");
@@ -583,6 +604,13 @@ export default function App() {
           >
             {tablaTapsVisible ? "Ocultar tabla" : "📋 Ver tabla de taps"}
           </button>
+          <button
+            className="btn-escaneo"
+            onClick={toggleDetalleEscaneos}
+            disabled={!sistemaOnline}
+          >
+            {detalleEscaneosVisible ? "Ocultar detalle" : "🔬 Ver voltaje por tap"}
+          </button>
           {!sistemaOnline && (
             <span className="dev-panel-hint">Sistema desconectado — no se puede escanear</span>
           )}
@@ -615,6 +643,43 @@ export default function App() {
                     <td>
                       <button className="btn-borrar-fila" onClick={() => borrarFilaTabla(f.id)} disabled={!sistemaOnline || !usuario}>✕</button>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {devMode && detalleEscaneosVisible && (
+        <div className="tabla-taps-panel">
+          {detalleEscaneosCargando ? (
+            <span>Cargando...</span>
+          ) : detalleEscaneos.length === 0 ? (
+            <span>Sin escaneos registrados todavía.</span>
+          ) : (
+            <table className="tabla-taps-tabla">
+              <thead>
+                <tr>
+                  <th>Fecha</th><th>V.Entrada</th><th>Óptimo</th>
+                  <th>K1</th><th>K2</th><th>K3</th><th>K4</th><th>K5</th>
+                  <th>K6</th><th>K7</th><th>K8</th><th>K9</th><th>K10</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detalleEscaneos.map((e) => (
+                  <tr key={e.id}>
+                    <td>{formatearTooltip(e.created_at)}</td>
+                    <td>{e.v_entrada.toFixed(1)}V</td>
+                    <td>K{e.tap_optimo}</td>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((t) => (
+                      <td
+                        key={t}
+                        style={e.tap_optimo === t ? { color: "var(--volt)", fontWeight: "bold" } : undefined}
+                      >
+                        {e[`tap${t}_voltaje`].toFixed(1)}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
