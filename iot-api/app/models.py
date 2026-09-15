@@ -73,3 +73,22 @@ class Usuario(Base):
     username = Column(String(50), unique=True, index=True)
     password_hash = Column(String(255))
     created_at = Column(DateTime, server_default=func.now())
+
+
+class EscaneoDetalle(Base):
+    __tablename__ = "escaneo_detalle"
+
+    id = Column(Integer, primary_key=True, index=True)
+    v_entrada = Column(Float)
+    tap_optimo = Column(Integer)
+    tap1_voltaje = Column(Float)
+    tap2_voltaje = Column(Float)
+    tap3_voltaje = Column(Float)
+    tap4_voltaje = Column(Float)
+    tap5_voltaje = Column(Float)
+    tap6_voltaje = Column(Float)
+    tap7_voltaje = Column(Float)
+    tap8_voltaje = Column(Float)
+    tap9_voltaje = Column(Float)
+    tap10_voltaje = Column(Float)
+    created_at = Column(DateTime, server_default=func.now())
