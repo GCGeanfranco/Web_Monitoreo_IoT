@@ -38,6 +38,7 @@ class TransformadorIn(BaseModel):
     estado_bomba2: bool = False
     sistema_encendido: bool = False
     alarma: bool = False
+    modo_manual: bool = False
     # epoch unix (segundos) del ESP32 via NTP; 0/None si no sincronizo
     timestamp_dispositivo: Optional[int] = None
 

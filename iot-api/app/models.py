@@ -15,6 +15,7 @@ class LecturaTransformador(Base):
     estado_bomba2 = Column(Boolean, default=False)
     sistema_encendido = Column(Boolean, default=False)
     alarma = Column(Boolean, default=False)
+    modo_manual = Column(Boolean, default=False)
     # hora real capturada por el ESP32 (NTP, naive UTC); None si no vino en el payload
     timestamp_dispositivo = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

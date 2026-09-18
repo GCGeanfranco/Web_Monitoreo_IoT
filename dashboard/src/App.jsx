@@ -694,6 +694,11 @@ export default function App() {
           <span className={controlSistemaPower ? "sistema-power-estado on" : "sistema-power-estado off"}>
             {controlSistemaPower ? "🟢 Encendido" : "⚪ Apagado"}
           </span>
+          {ultima?.modo_manual && (
+            <div className="modo-manual-banner">
+              🔧 Modo manual activo — los controles de bomba, bomba2 y sistema están deshabilitados en la app
+            </div>
+          )}
           {sistemaPowerSinConfirmar && (
             <span className="sistema-power-advertencia">⚠️ No confirmado</span>
           )}
@@ -702,7 +707,7 @@ export default function App() {
           <button
             className={controlSistemaPower ? "btn-sistema-power btn-apagar" : "btn-sistema-power btn-encender"}
             onClick={toggleSistemaPower}
-            disabled={!sistemaOnline || sistemaPowerPendiente || !usuario}
+            disabled={!sistemaOnline || sistemaPowerPendiente || !usuario || ultima?.modo_manual}
           >
             {sistemaPowerPendiente ? "Esperando..." : controlSistemaPower ? "Apagar sistema" : "Encender sistema"}
           </button>
@@ -749,8 +754,8 @@ export default function App() {
               on={controlBomba}
               onToggle={toggleBomba}
               color="var(--copper)"
-              disabled={!sistemaOnline || !usuario}
-              disabledHint={!usuario ? "🔒 Inicia sesión para controlar" : undefined}
+              disabled={!sistemaOnline || !usuario || ultima?.modo_manual}
+              disabledHint={!usuario ? "🔒 Inicia sesión para controlar" : ultima?.modo_manual ? "🔧 Modo manual activo" : undefined}
               pendiente={bombaPendiente}
               sinConfirmar={bombaSinConfirmar}
             />
@@ -759,8 +764,8 @@ export default function App() {
               on={controlBomba2}
               onToggle={toggleBomba2}
               color="var(--copper)"
-              disabled={!sistemaOnline || !usuario}
-              disabledHint={!usuario ? "🔒 Inicia sesión para controlar" : undefined}
+              disabled={!sistemaOnline || !usuario || ultima?.modo_manual}
+              disabledHint={!usuario ? "🔒 Inicia sesión para controlar" : ultima?.modo_manual ? "🔧 Modo manual activo" : undefined}
               pendiente={bombaPendiente2}
               sinConfirmar={bombaSinConfirmar2}
             />
