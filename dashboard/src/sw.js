@@ -17,7 +17,7 @@ precacheAndRoute(self.__WB_MANIFEST)
 // la red, nunca a cache. Este es un dashboard de monitoreo en tiempo real:
 // mostrar un dato viejo cacheado sería peor que mostrar un error de red.
 registerRoute(
-  ({ url }) => url.href.startsWith('https://web-monitoreo-iot.onrender.com/api/'),
+  ({ url }) => url.pathname.startsWith('/api/'),
   new NetworkOnly()
 )
 
