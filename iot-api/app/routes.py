@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi.responses import StreamingResponse
 from app import sse_manager
 from app import mqtt_listener
@@ -163,9 +163,17 @@ def crear_lectura_transformador(data: TransformadorIn, db: Session = Depends(get
             # naive UTC explicito: la columna es TIMESTAMP sin zona,
             # igual que created_at -- guardar un datetime "aware" aca
             # podria quedar corrido de hora segun la sesion de Postgres.
+            # CORRECCION EMPIRICA DE 5H: el firmware llama configTime(-5*3600,...)
+           # para que el LCD muestre hora de Peru, pero en el core de ESP32/Arduino
+           # ese offset tambien contamina el reloj interno que usa time() (no
+           # queda aislado a getLocalTime()/display) -- confirmado comparando
+           # timestamp_dispositivo vs created_at en lecturas reales de produccion,
+           # siempre +5h por delante de UTC real, nunca al reves. Se corrige aca
+           # en vez de en el firmware para no requerir un nuevo flasheo del ESP32.
+           # Si en el futuro se corrige tambien en firmware, quitar esta resta.
             lectura.timestamp_dispositivo = datetime.fromtimestamp(
                 ts_epoch, tz=timezone.utc
-            ).replace(tzinfo=None)
+            ).replace(tzinfo=None) - timedelta(hours=5)
         except (ValueError, OSError, OverflowError) as ex:
             logger.warning(
                 f"[LECTURA] timestamp_dispositivo invalido ({ts_epoch}): {ex}")
